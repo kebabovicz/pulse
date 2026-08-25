@@ -29,6 +29,7 @@ export function App() {
   const [live, setLive] = useState(false)
   const [modalPath, setModalPath] = useState<string | null>(null)
   const [menuPath, setMenuPath] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
   const [aboutOpen, setAboutOpen] = useState(false)
   const [needLogin, setNeedLogin] = useState(false)
   const [authed, setAuthed] = useState(false)
@@ -164,13 +165,17 @@ export function App() {
   }
 
   const groups = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    const visible = query
+      ? scenarios.filter((s) => s.path.toLowerCase().includes(query) || s.name.toLowerCase().includes(query))
+      : scenarios
     const byDir = new Map<string, ScenarioListItem[]>()
-    for (const s of scenarios) {
+    for (const s of visible) {
       const dir = s.path.includes('/') ? s.path.slice(0, s.path.lastIndexOf('/') + 1) : ''
       byDir.set(dir, [...(byDir.get(dir) ?? []), s])
     }
     return [...byDir.entries()].sort(([a], [b]) => a.localeCompare(b))
-  }, [scenarios])
+  }, [scenarios, search])
 
   const selected = scenarios.find((s) => s.path === selectedPath)
 
@@ -219,6 +224,19 @@ export function App() {
       <div className="layout">
         <nav className="sidebar">
           <div className="sidebar-tools">
+            <input
+              className="filter-input sidebar-search"
+              type="search"
+              name="scenario-search"
+              autoComplete="off"
+              spellCheck={false}
+              data-bwignore="true"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              placeholder={t('searchScenarios')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
             <button className="link" onClick={() => importRef.current?.click()}>
               <Upload size={12} /> {t('importBtn')}
             </button>

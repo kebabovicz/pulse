@@ -41,10 +41,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* десктопный инструмент: ниже 960px вёрстка не ломается, а скроллится целиком */
 #root {
   display: grid;
   grid-template-rows: 44px 1fr;
   height: 100vh;
+  min-width: 960px;
 }
 
 /* ── шапка ── */
@@ -55,7 +57,9 @@ body {
   padding: 0 16px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
+.header .checked-at { overflow: hidden; text-overflow: ellipsis; }
 
 .health-dot {
   width: 8px;
@@ -67,6 +71,10 @@ body {
 .base-url {
   color: var(--text-secondary);
   font-size: 11px;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header .checked-at {
@@ -172,6 +180,9 @@ body {
   color: var(--text-muted);
   font-weight: 400;
   font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .scenario-row .meta.invalid { color: var(--warn); }
 

@@ -1,0 +1,121 @@
+import type { RunRecord, StepResult } from '@pulse/shared'
+import { Cross } from './icons'
+import { t, dateLocale } from './i18n'
+import { fmtMs, fmtTotal } from './runState'
+
+const ICON: Record<StepResult['status'], string> = { passed: '✓', failed: '✕', skipped: '—' }
+
+interface Row {
+  id: string
+  a?: RunRecord['steps'][number]
+  b?: RunRecord['steps'][number]
+}
+
+// Шаги сопоставляются по id; отсутствующие в одном из прогонов помечаются (req 48).
+function pairSteps(a: RunRecord, b: RunRecord): Row[] {
+  const ids = [...new Set([...a.steps.map((s) => s.id), ...b.steps.map((s) => s.id)])]
+  return ids.map((id) => ({ id, a: a.steps.find((s) => s.id === id), b: b.steps.find((s) => s.id === id) }))
+}
+
+function Cell({ step }: { step?: RunRecord['steps'][number] }) {
+  if (!step) return <span className="muted">{t('noStep')}</span>
+  return (
+    <>
+      <span className={step.status === 'passed' ? 'ok' : step.status === 'failed' ? 'bad' : 'muted'}>
+        {ICON[step.status]}
+      </span>{' '}
+      <span className="mono">{step.durationMs != null ? fmtMs(step.durationMs) : '—'}</span>
+      {(step.attempts ?? 1) > 1 && <span className="warn mono"> ×{step.attempts}</span>}
+    </>
+  )
+}
+
+export function CompareScreen({ a, b, onClose, onOpen }: { a: RunRecord; b: RunRecord; onClose: () => void; onOpen: (run: number) => void }) {
+  const rows = pairSteps(a, b)
+  const maxMs = Math.max(1, ...rows.flatMap((r) => [r.a?.durationMs ?? 0, r.b?.durationMs ?? 0]))
+  const diverged = rows.filter((r) => r.a?.status !== r.b?.status).length
+  const totalDelta = b.durationMs - a.durationMs
+
+  const fmtDelta = (delta: number) => `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${fmtMs(Math.abs(delta))}`
+
+  const runChip = (r: RunRecord) => (
+    <button className={`run-chip ${r.status}`} onClick={() => onOpen(r.run)}>
+      <b>#{r.run}</b> {r.status === 'passed' ? t('passed') : r.status === 'failed' ? t('failed') : r.status} · {fmtTotal(r.durationMs)}{' '}
+      <span className="muted">
+        {new Date(r.startedAt).toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })}{' '}
+        {new Date(r.startedAt).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    </button>
+  )
+
+  return (
+    <div className="run-screen">
+      <div className="run-header">
+        <h1>{t('comparison')}</h1>
+        <span className="muted">· {a.scenarioName}</span>
+        <div className="run-actions">
+          <button className="icon-btn modal-close" onClick={onClose}>
+            <Cross size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="compare-chips">
+        {runChip(a)}
+        <span className="muted">⇄</span>
+        {runChip(b)}
+        <span className="compare-summary muted">
+          {diverged > 0 ? t('diverged', diverged, rows.length) : t('statusesMatch')} · {t('totalTime')}{' '}
+          <span className={totalDelta > 500 ? 'warn' : 'muted'}>{fmtDelta(totalDelta)}</span>
+        </span>
+      </div>
+      <table className="history compare">
+        <thead>
+          <tr>
+            <th>{t('stepWord')}</th>
+            <th>#{a.run}</th>
+            <th>#{b.run}</th>
+            <th>Δ</th>
+            <th>{t('durationCol')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const delta =
+              row.a?.durationMs != null && row.b?.durationMs != null ? row.b.durationMs - row.a.durationMs : null
+            const differs = row.a?.status !== row.b?.status
+            return (
+              <tr key={row.id} className={differs ? 'diverged' : ''}>
+                <td>
+                  <span className="muted mono">{i + 1}</span> <span className="mono">{row.id}</span>
+                </td>
+                <td>
+                  <Cell step={row.a} />
+                </td>
+                <td>
+                  <Cell step={row.b} />
+                </td>
+                <td className={`mono${delta != null && delta > 500 ? ' warn' : ''}`}>
+                  {delta == null ? '—' : fmtDelta(delta)}
+                </td>
+                <td className="dur-bars">
+                  <div className="dur-bar" style={{ width: `${((row.a?.durationMs ?? 0) / maxMs) * 100}%` }} />
+                  <div
+                    className={`dur-bar${delta != null && delta > 500 ? ' slow' : ''}`}
+                    style={{ width: `${((row.b?.durationMs ?? 0) / maxMs) * 100}%` }}
+                  />
+                </td>
+              </tr>
+            )
+          })}
+          <tr className="total">
+            <td>{t('total')}</td>
+            <td className="mono">{fmtTotal(a.durationMs)}</td>
+            <td className="mono">{fmtTotal(b.durationMs)}</td>
+            <td className={`mono${totalDelta > 500 ? ' warn' : ''}`}>{fmtDelta(totalDelta)}</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}

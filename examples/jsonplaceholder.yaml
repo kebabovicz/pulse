@@ -1,0 +1,47 @@
+name: posts-flow
+description: Sample flow against the public JSONPlaceholder API
+
+steps:
+  - id: read-post
+    request:
+      method: GET
+      path: /posts/1
+    expect:
+      status: 200
+      body:
+        - path: $.userId
+          exists: true
+    capture:
+      authorId: { from: body, path: $.userId }
+
+  - id: read-author
+    request:
+      method: GET
+      path: /users/{{authorId}}
+    expect:
+      status: 200
+      body:
+        - path: $.id
+          equals: "{{authorId}}"
+        - path: $.name
+          type: string
+
+  - id: create-post
+    request:
+      method: POST
+      path: /posts
+      body: { title: "pulse demo", body: "hello", userId: "{{authorId}}" }
+    expect:
+      status: 201
+      body:
+        - path: $.id
+          exists: true
+    capture:
+      postId: { from: body, path: $.id }
+
+  - id: missing-post
+    request:
+      method: GET
+      path: /posts/999999
+    expect:
+      status: 404

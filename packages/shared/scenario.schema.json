@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse.local/spec/scenario.schema.json",
+  "title": "Pulse scenario",
+  "type": "object",
+  "required": [
+    "name",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "vars": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/varDef"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "cleanup": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    }
+  },
+  "$defs": {
+    "duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m)$"
+    },
+    "varDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "secret": {
+          "type": "boolean"
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "timeout": {
+          "$ref": "#/$defs/duration"
+        },
+        "sleep": {
+          "$ref": "#/$defs/duration"
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "expect": {
+          "$ref": "#/$defs/expect"
+        },
+        "capture": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/captureDef"
+          }
+        },
+        "cookies": {
+          "$ref": "#/$defs/cookies"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "request",
+            "expect"
+          ],
+          "not": {
+            "required": [
+              "sleep"
+            ]
+          }
+        },
+        {
+          "required": [
+            "sleep"
+          ],
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "request"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "expect"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "capture"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "cookies"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "retry"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "timeout"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "body": {},
+        "contentType": {
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "path"
+          ],
+          "not": {
+            "required": [
+              "url"
+            ]
+          }
+        },
+        {
+          "required": [
+            "url"
+          ],
+          "not": {
+            "required": [
+              "path"
+            ]
+          }
+        }
+      ]
+    },
+    "expect": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/statusCode"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/statusCode"
+              }
+            }
+          ]
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "body": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/bodyCheck"
+          }
+        }
+      }
+    },
+    "statusCode": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "bodyCheck": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^\\$"
+            },
+            "exists": {
+              "type": "boolean"
+            },
+            "equals": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            "matches": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "string",
+                "number",
+                "boolean",
+                "object",
+                "array",
+                "null"
+              ]
+            }
+          },
+          "oneOf": [
+            {
+              "required": [
+                "exists"
+              ]
+            },
+            {
+              "required": [
+                "equals"
+              ]
+            },
+            {
+              "required": [
+                "matches"
+              ]
+            },
+            {
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "text",
+            "matches"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "text": {
+              "const": true
+            },
+            "matches": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "captureDef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "from"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "const": "body"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^\\$"
+            },
+            "regex": {
+              "type": "string"
+            }
+          },
+          "not": {
+            "required": [
+              "path",
+              "regex"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "from",
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "enum": [
+                "header",
+                "cookie"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "cookies": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "clear": {
+          "const": true
+        },
+        "set": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "retry": {
+      "type": "object",
+      "required": [
+        "attempts",
+        "delay"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "delay": {
+          "$ref": "#/$defs/duration"
+        }
+      }
+    }
+  }
+}

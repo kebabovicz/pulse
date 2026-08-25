@@ -1,0 +1,13 @@
+services:
+  pulse:
+    build: .
+    ports: ["7100:7100"]
+    # environment:
+    #   PULSE_USER: pulse
+    #   PULSE_PASSWORD: change-me   # без пароля авторизация выключена
+    volumes:
+      - pulse-data:/data
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+volumes:
+  pulse-data:

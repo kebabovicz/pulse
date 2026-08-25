@@ -437,9 +437,13 @@ function evalChecks(
     passed: statuses.includes(res.status),
   })
   for (const [name, want] of Object.entries(expect.headers ?? {})) {
-    const expected = render(want)
     const actual = res.headers.get(name)
-    results.push({ kind: 'header', name, expected, actual, passed: actual !== null && actual.includes(expected) })
+    if (want === null) {
+      results.push({ kind: 'header', name, expected: 'absent', actual, passed: actual === null })
+    } else {
+      const expected = render(want)
+      results.push({ kind: 'header', name, expected, actual, passed: actual !== null && actual.includes(expected) })
+    }
   }
   for (const check of expect.body ?? []) {
     results.push(evalBodyCheck(check, text, json, render))
@@ -467,9 +471,38 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
     const expected = typeof check.equals === 'string' ? render(check.equals) : String(check.equals)
     return { kind: 'body-path', path: check.path, predicate: 'equals', expected, actual, passed: found.length > 0 && String(value) === expected }
   }
+  if (check.notEquals !== undefined) {
+    const expected = typeof check.notEquals === 'string' ? render(check.notEquals) : String(check.notEquals)
+    return { kind: 'body-path', path: check.path, predicate: 'notEquals', expected: `≠ ${expected}`, actual, passed: found.length > 0 && String(value) !== expected }
+  }
+  if (check.equalsPath !== undefined) {
+    const otherFound = json === undefined ? [] : (JSONPath({ path: check.equalsPath, json: json as never, wrap: true }) as unknown[])
+    const other = otherFound.length === 0 ? null : otherFound[0]
+    const expected = `${check.equalsPath} = ${other === null ? '—' : typeof other === 'string' ? other : JSON.stringify(other)}`
+    return { kind: 'body-path', path: check.path, predicate: 'equalsPath', expected, actual, passed: found.length > 0 && otherFound.length > 0 && String(value) === String(other) }
+  }
   if (check.matches !== undefined) {
     const expected = render(check.matches)
     return { kind: 'body-path', path: check.path, predicate: 'matches', expected, actual, passed: found.length > 0 && new RegExp(expected).test(String(value)) }
+  }
+  if (check.gt !== undefined || check.lt !== undefined) {
+    const op = check.gt !== undefined ? 'gt' : 'lt'
+    const raw = check.gt ?? check.lt
+    const expected = typeof raw === 'string' ? render(raw) : String(raw)
+    // числа сравниваются численно, строки — лексикографически (ISO-даты корректны)
+    const bothNumeric = typeof value === 'number' && !Number.isNaN(Number(expected))
+    const cmp = found.length === 0 ? 0 : bothNumeric ? Number(value) - Number(expected) : String(value) < expected ? -1 : String(value) > expected ? 1 : 0
+    const passed = found.length > 0 && (op === 'gt' ? cmp > 0 : cmp < 0)
+    return { kind: 'body-path', path: check.path, predicate: op, expected: `${op === 'gt' ? '>' : '<'} ${expected}`, actual, passed }
+  }
+  if (check.length !== undefined || check.minLength !== undefined || check.maxLength !== undefined) {
+    const size = typeof value === 'string' || Array.isArray(value) ? value.length : null
+    const predicate = check.length !== undefined ? 'length' : check.minLength !== undefined ? 'minLength' : 'maxLength'
+    const bound = check.length ?? check.minLength ?? check.maxLength ?? 0
+    const expected = predicate === 'length' ? `length ${bound}` : predicate === 'minLength' ? `length ≥ ${bound}` : `length ≤ ${bound}`
+    const passed =
+      size !== null && (predicate === 'length' ? size === bound : predicate === 'minLength' ? size >= bound : size <= bound)
+    return { kind: 'body-path', path: check.path, predicate, expected, actual: size === null ? actual : `length ${size}`, passed }
   }
   const actualType = found.length === 0 ? null : value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value
   return { kind: 'body-path', path: check.path, predicate: 'type', expected: String(check.type), actual: actualType, passed: actualType === check.type }

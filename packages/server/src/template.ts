@@ -17,6 +17,7 @@ export class TemplateSpace {
   private values = new Map<string, VarEntry>()
   private generated = new Map<string, string>()
   private readonly runTimestamp = String(Math.floor(Date.now() / 1000))
+  private readonly runStartedAt = new Date().toISOString()
 
   set(name: string, entry: VarEntry): void {
     this.values.set(name, entry)
@@ -51,6 +52,7 @@ export class TemplateSpace {
 
   private generate(expr: string): string | null {
     if (expr === 'timestamp') return this.runTimestamp
+    if (expr === 'runStartedAt') return this.runStartedAt
     if (!expr.startsWith('random.')) return null
     const cached = this.generated.get(expr)
     if (cached !== undefined) return cached

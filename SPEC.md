@@ -107,6 +107,7 @@ Capture values from the response for later steps.
 ```yaml
 capture:
   userId:       { from: body, path: $.id }                  # JSON body field
+  foundId:      { from: body, path: "$.items[?(@.name=='X')].id" } # filters work here too
   otpCode:      { from: body, regex: 'code: (\d{6})' }      # first regex group
   accessToken:  { from: body }         # whole body as a string, byte for byte:
                                        # a JSON scalar keeps its quotes — use regex for the bare value
@@ -164,6 +165,8 @@ Clean up through the API only: Pulse deliberately has no database access.
   - `{{random.digits(6)}}` — N random digits
   - `{{random.string(8)}}` — N latin letters and digits
   - `{{timestamp}}` — unix time of the run start, seconds
+  - `{{runStartedAt}}` — ISO time of the run start; with `gt` it verifies
+    freshness — that data was produced by this run, not served from a cache
 - An unknown interpolation fails validation before the run, naming the step.
 
 ## Full example

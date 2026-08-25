@@ -258,7 +258,10 @@
         "headers": {
           "type": "object",
           "additionalProperties": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "body": {
@@ -311,6 +314,42 @@
                 "array",
                 "null"
               ]
+            },
+            "notEquals": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            "equalsPath": {
+              "type": "string",
+              "pattern": "^\\$"
+            },
+            "gt": {
+              "type": [
+                "string",
+                "number"
+              ]
+            },
+            "lt": {
+              "type": [
+                "string",
+                "number"
+              ]
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minLength": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxLength": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "oneOf": [
@@ -332,6 +371,41 @@
             {
               "required": [
                 "type"
+              ]
+            },
+            {
+              "required": [
+                "notEquals"
+              ]
+            },
+            {
+              "required": [
+                "equalsPath"
+              ]
+            },
+            {
+              "required": [
+                "gt"
+              ]
+            },
+            {
+              "required": [
+                "lt"
+              ]
+            },
+            {
+              "required": [
+                "length"
+              ]
+            },
+            {
+              "required": [
+                "minLength"
+              ]
+            },
+            {
+              "required": [
+                "maxLength"
               ]
             }
           ]

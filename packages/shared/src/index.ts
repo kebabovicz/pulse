@@ -24,12 +24,25 @@ export interface RequestSpec {
 export type ValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null'
 
 export type BodyCheck =
-  | { path: string; exists?: boolean; equals?: string | number | boolean | null; matches?: string; type?: ValueType }
+  | {
+      path: string
+      exists?: boolean
+      equals?: string | number | boolean | null
+      notEquals?: string | number | boolean | null
+      equalsPath?: string
+      matches?: string
+      type?: ValueType
+      gt?: string | number
+      lt?: string | number
+      length?: number
+      minLength?: number
+      maxLength?: number
+    }
   | { text: true; matches: string }
 
 export interface ExpectSpec {
   status: number | number[]
-  headers?: Record<string, string>
+  headers?: Record<string, string | null> // null — заголовка быть не должно
   body?: BodyCheck[]
 }
 
@@ -170,7 +183,14 @@ export interface ResponseSnapshot {
 export type CheckResult =
   | { kind: 'status'; expected: string; actual: string; passed: boolean }
   | { kind: 'header'; name: string; expected: string; actual: string | null; passed: boolean }
-  | { kind: 'body-path'; path: string; predicate: 'exists' | 'equals' | 'matches' | 'type'; expected: string; actual: string | null; passed: boolean }
+  | {
+      kind: 'body-path'
+      path: string
+      predicate: 'exists' | 'equals' | 'notEquals' | 'equalsPath' | 'matches' | 'type' | 'gt' | 'lt' | 'length' | 'minLength' | 'maxLength'
+      expected: string
+      actual: string | null
+      passed: boolean
+    }
   | { kind: 'body-text'; expected: string; actual: string | null; passed: boolean }
 
 export interface CaptureResult {

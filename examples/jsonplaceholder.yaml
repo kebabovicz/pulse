@@ -2,6 +2,20 @@ name: posts-flow
 description: Sample flow against the public JSONPlaceholder API
 
 steps:
+  - id: list-users
+    request:
+      method: GET
+      path: /users
+    expect:
+      status: 200
+      body:
+        - path: $
+          minLength: 1
+        - path: $
+          maxLength: 100
+    capture:
+      authorId: { from: body, path: "$[?(@.username=='Bret')].id" }
+
   - id: read-post
     request:
       method: GET
@@ -11,8 +25,8 @@ steps:
       body:
         - path: $.userId
           exists: true
-    capture:
-      authorId: { from: body, path: $.userId }
+        - path: $.id
+          equalsPath: $.userId
 
   - id: read-author
     request:

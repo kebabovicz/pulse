@@ -72,7 +72,7 @@ export function loadScenarioFile(absPath: string, relPath: string): LoadedScenar
 
 // Правила, которые JSON Schema выразить не может (SPEC.md):
 // уникальность id, ссылки только назад, захват в занятое имя, известные генераторы.
-const BUILTIN = /^(random\.(phone|uuid|digits\(\d+\)|string\(\d+\))|timestamp)$/
+const BUILTIN = /^(random\.(phone|uuid|digits\(\d+\)|string\(\d+\))|timestamp|runStartedAt)$/
 
 export function semanticError(scenario: Scenario): string | null {
   const allSteps = [...scenario.steps, ...(scenario.cleanup ?? [])]

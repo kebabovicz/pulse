@@ -228,7 +228,8 @@ function Elapsed({ state }: { state: RunState }) {
 const thousands = (n: number): string => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009')
 
 function Timeline({ steps: allSteps, onPick }: { steps: StepView[]; onPick: (stepId: string) => void }) {
-  const [hover, setHover] = useState<string | null>(null)
+  // подсказка позиционируется от курсора фиксированно: не двигает полосу и не обрезается
+  const [hover, setHover] = useState<{ text: string; x: number; y: number } | null>(null)
   const steps = allSteps.filter((s) => s.status !== 'pending' && s.status !== 'skipped')
   const total = steps.reduce((sum, s) => sum + (s.result?.durationMs ?? s.durationMs ?? 0), 0)
   if (total === 0) return null
@@ -242,14 +243,24 @@ function Timeline({ steps: allSteps, onPick }: { steps: StepView[]; onPick: (ste
               key={s.id}
               className={`tl-seg ${s.status}${(s.result?.attempts ?? 1) > 1 ? ' retried' : ''}`}
               style={{ flexGrow: Math.max(ms, total / 100) }}
-              onMouseEnter={() => setHover(`${allSteps.findIndex((x) => x.id === s.id) + 1} · ${s.id} · ${fmtMs(ms)}`)}
+              onMouseEnter={(e) =>
+                setHover({
+                  text: `${allSteps.findIndex((x) => x.id === s.id) + 1} · ${s.id} · ${fmtMs(ms)}`,
+                  x: e.clientX,
+                  y: e.clientY,
+                })
+              }
               onMouseLeave={() => setHover(null)}
               onClick={() => onPick(s.id)}
             />
           )
         })}
       </div>
-      {hover && <span className="tl-hover">{hover}</span>}
+      {hover && (
+        <span className="hover-tip" style={{ left: hover.x, top: hover.y - 12 }}>
+          {hover.text}
+        </span>
+      )}
       <span className="tl-total">{thousands(total)} ms</span>
     </div>
   )

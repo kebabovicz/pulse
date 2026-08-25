@@ -264,7 +264,7 @@ export function App() {
                       <span className="meta invalid">{t('invalidShort')}{s.error?.line != null && ` · ${t('line')} ${s.error.line}`}</span>
                     )}
                   </button>
-                  <button className="row-action" title="⋯" onClick={() => setMenuPath(menuPath === s.path ? null : s.path)}>
+                  <button className="row-action" onClick={() => setMenuPath(menuPath === s.path ? null : s.path)}>
                     <MoreVertical size={13} />
                   </button>
                   {s.valid && (

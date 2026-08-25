@@ -41,11 +41,18 @@ embedded scripts.
 ## Quick start
 
 ```sh
-docker build -t pulse .
 docker run -d --name pulse -p 7100:7100 \
   -v pulse-data:/data \
   --add-host host.docker.internal:host-gateway \
-  pulse
+  ghcr.io/kebabovicz/pulse:latest
+```
+
+The image is published by CI on every push to `main` (and `vX.Y.Z` git tags).
+While the repository is private the package is private too — `docker login ghcr.io`
+with a token that has `read:packages` first. Or build from source:
+
+```sh
+docker build -t pulse .
 ```
 
 Open http://localhost:7100 — the empty state points you to the config.

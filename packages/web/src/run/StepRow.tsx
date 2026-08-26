@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Check, ChevronDown, Circle, Cross, Minus, Spinner } from '../icons'
+import { Check, ChevronDown, Circle, Cross, Minus, Pause, Spinner } from '../icons'
 import { t } from '../i18n'
 import { fmtMs, type StepView } from '../runState'
 import { hasDetails } from './labels'
@@ -27,13 +27,17 @@ export function StepRow({
   const r = step.result
   const attempts = r?.attempts ?? step.attempt ?? 0
   const expandable = hasDetails(step)
+  // a finished pause checked nothing, so it gets a neutral mark instead of a tick
+  const pause = step.kind === 'sleep' && step.status === 'passed'
   return (
     <button
       className={`step-row ${step.status}${open ? ' open' : ''}`}
       style={expandable ? undefined : { cursor: 'default' }}
       onClick={expandable ? onToggle : undefined}
     >
-      <span className={`step-icon ${step.status}`}>{STATUS_ICON[step.status]}</span>
+      <span className={`step-icon ${pause ? 'pause' : step.status}`}>
+        {pause ? <Pause size={11} /> : STATUS_ICON[step.status]}
+      </span>
       <span className="step-num">{index + 1}</span>
       <span className="step-name" title={step.name ?? step.id}>
         {step.name ?? step.id}

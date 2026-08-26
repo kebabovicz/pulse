@@ -38,6 +38,12 @@ export const Minus = (p: { size?: number }) => (
   </Svg>
 )
 
+export const Pause = (p: { size?: number }) => (
+  <Svg {...p}>
+    <path d="M9 5v14M15 5v14" />
+  </Svg>
+)
+
 export const Circle = (p: { size?: number }) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" />

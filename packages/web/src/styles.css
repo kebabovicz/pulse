@@ -428,6 +428,9 @@ body {
 .tl-seg.skipped {
   --seg: var(--bg-elev);
 }
+.tl-seg.pause {
+  --seg: var(--border-strong);
+}
 .tl-seg.retried {
   --seg: var(--warn);
 }
@@ -506,7 +509,8 @@ body {
   color: var(--accent);
 }
 .step-icon.pending,
-.step-icon.skipped {
+.step-icon.skipped,
+.step-icon.pause {
   color: var(--skip);
 }
 

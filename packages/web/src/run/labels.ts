@@ -16,6 +16,6 @@ export function checkLabel(check: CheckResult): string {
   }
 }
 
-/** A step has details to expand only after it actually ran. */
+/** A step has details to expand only after it actually ran; a pause has none to show. */
 export const hasDetails = (step: StepView): boolean =>
-  Boolean(step.result) && step.status !== 'skipped' && step.status !== 'pending'
+  Boolean(step.result) && step.kind !== 'sleep' && step.status !== 'skipped' && step.status !== 'pending'

@@ -73,7 +73,8 @@ function StepRows({ steps }: { steps: StepStats[] }) {
   return (
     <div className="stats-nested">
       <div className="stats-step head">
-        <span>{t('statsStepHead')}</span>
+        <span>{t('stepWord')}</span>
+        <span className="muted">{t('onlyWithDeviation')}</span>
         <span>{t('failuresCol')}</span>
         <span>{t('median')}</span>
         <span>{t('deltaMedian')}</span>
@@ -167,6 +168,7 @@ function FlakyTable({ rows, onOpenRun }: { rows: FlakyStep[]; onOpenRun: (scenar
       <div className="stats-flaky head">
         <span>{t('scenarioCol')}</span>
         <span>{t('stepWord')}</span>
+        <span />
         <span>{t('retriedCol')}</span>
         <span>{t('lastRunCol')}</span>
       </div>
@@ -192,18 +194,16 @@ function FlakyTable({ rows, onOpenRun }: { rows: FlakyStep[]; onOpenRun: (scenar
   )
 }
 
-/** Step id with its method and path, used by every supporting table. */
+/**
+ * Two cells, not one: the id keeps its own column and wraps onto further lines,
+ * so requests below it stay in a column of their own.
+ */
 function StepCell({ step }: { step: { stepId: string; method?: string; path?: string } }) {
   return (
-    <span className="stats-step-id">
-      {step.stepId}
-      {step.path && (
-        <span className="muted stats-req">
-          {' '}
-          {step.method} {step.path}
-        </span>
-      )}
-    </span>
+    <>
+      <span className="stats-step-id">{step.stepId}</span>
+      <span className="muted stats-req">{step.path ? `${step.method ?? ''} ${step.path}` : ''}</span>
+    </>
   )
 }
 
@@ -215,6 +215,7 @@ function StepsTable({ title, rows, metric }: { title: string; rows: SlowStep[]; 
       <div className="stats-flaky head">
         <span>{t('scenarioCol')}</span>
         <span>{t('stepWord')}</span>
+        <span />
         <span>{metric === 'median' ? t('median') : t('spreadCol')}</span>
         <span>{metric === 'median' ? t('spreadCol') : t('median')}</span>
       </div>
@@ -246,12 +247,14 @@ function StaleTable({
       <div className="stats-flaky head">
         <span>{t('scenarioCol')}</span>
         <span />
+        <span />
         <span>{t('sinceCol')}</span>
         <span>{t('lastRunCol')}</span>
       </div>
       {rows.map((row) => (
         <div key={row.scenario} className="stats-flaky">
           <span className="stats-step-id">{row.name}</span>
+          <span />
           <span />
           <span className="mono warn">{t('daysAgo', row.days)}</span>
           <span className="mono">
@@ -349,8 +352,12 @@ export function StatsScreen({
       <section
         className="scn-section stats-table"
         style={cols({
+          // one column for scenario names and step ids: the breakdown sits under it
           'stats-name-col': colWidth(
-            stats.scenarios.map((s) => s.name + '  '),
+            [
+              ...stats.scenarios.map((s) => s.name),
+              ...stats.scenarios.flatMap((s) => s.steps.map((step) => step.stepId)),
+            ].map((name) => name + '  '),
             34,
             14,
           ),

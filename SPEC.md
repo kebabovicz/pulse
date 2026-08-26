@@ -85,21 +85,42 @@ expect:
   status: 201 # number or list: [200, 201]
   headers:
     content-type: application/json # substring match
+    location: null # null — the header must be absent
   body:
     - path: $.id # JSONPath into the body; exactly one predicate per check:
       exists: true #   exists: true | false
     - path: $.phoneNumber
       equals: '{{phone}}' #   equality (interpolation works)
+    - path: $.token
+      notEquals: '{{oldToken}}' #   negation (interpolation works)
+    - path: $.ownerId
+      equalsPath: $.author.id #   equals another field of the same body
     - path: $.error
       matches: 'token_.*' #   regular expression
     - path: $.items
       type: array #   string | number | boolean | object | array | null
+    - path: $.items
+      minLength: 1 #   at least N items — the usual "not empty" check
+    - path: $.slots
+      length: 18 #   exactly N; maxLength — at most N
+    - path: $.createdAt
+      gt: '{{runStartedAt}}' #   greater / less than: numbers numerically,
+      #   strings lexicographically (ISO dates work).
+      #   A value of another type fails the check.
     - text: true # whole non-JSON body
-      matches: 'Auth code: \d{6}'
+      matches: 'code: \d{6}'
 ```
 
 All checks of a step are evaluated even after the first failure — the report
 shows every one.
+
+JSONPath supports filter expressions, so a scenario can find an element by a
+field value instead of hardcoding an id — both in checks and in captures:
+
+```yaml
+- path: "$.items[?(@.name=='Delivery')].id"
+  exists: true
+```
 
 ### capture
 
@@ -252,3 +273,7 @@ cleanup:
    they are step successes, not failures.
 5. Async results are polled with `retry`, not a long `sleep`.
 6. Data the scenario creates is removed in `cleanup` — through the API.
+7. Collection checks use `minLength: 1` ("not empty") rather than a hardcoded
+   size, unless the exact count is the point of the test.
+8. Ids of reference data are found by a JSONPath filter instead of being pasted
+   as literals — a stand can be reseeded at any time.

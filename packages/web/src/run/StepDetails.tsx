@@ -77,17 +77,12 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
         r.response.body,
       ].join('\n')
     : ''
-  const failed = checks.filter((c) => !c.passed).length
+  const statusOk = !checks.some((c) => c.kind === 'status' && !c.passed)
 
   return (
     <div className="step-details">
       {checks.length > 0 && (
         <section>
-          <header>
-            {t('checks')}
-            {failed > 0 && ` · ${t('checksFailed', failed, checks.length)}`}
-            <CopyButton text={checks.map((c) => `${checkLabel(c)}\t${c.expected}\t${c.actual ?? ''}`).join('\n')} />
-          </header>
           {sorted.map((c, i) => (
             <div key={i} className={`check-row ${c.passed ? 'passed' : 'failed'}`}>
               <span className={c.passed ? 'ok' : 'bad'}>{c.passed ? <Check size={12} /> : <Cross size={12} />}</span>
@@ -109,7 +104,12 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
       {r.request && (
         <section>
           <header>
-            {t('request')}
+            <span className="detail-head-line">
+              <span className="mono detail-head-method">{r.request.method}</span>
+              <span className="mono detail-head-url" title={r.request.url}>
+                {r.request.url}
+              </span>
+            </span>
             <Seg
               modes={[
                 { id: 'tree', label: t('fields'), enabled: true },
@@ -133,13 +133,6 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
             </pre>
           ) : (
             <>
-              <div className="kv-row">
-                <span className="kv-origin">url</span>
-                <span className="kv-key">{r.request.method}</span>
-                <span className="mono clip" title={r.request.url}>
-                  {r.request.url}
-                </span>
-              </div>
               {Object.entries(r.request.headers).map(([name, value]) => {
                 const sub = r.request!.substitutions.find((s) => s.location === `headers.${name}`)
                 return (
@@ -166,8 +159,12 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
       {r.response && (
         <section>
           <header>
-            {t('response')} · {r.response.status} · {r.response.contentType?.split(';')[0] ?? '—'} ·{' '}
-            {r.response.sizeBytes} B{r.response.bodyTruncated && ` · ${t('truncated')}`}
+            <span className="detail-head-line">
+              <span className={`mono ${statusOk ? 'ok' : 'bad'}`}>{r.response.status}</span>
+              <span className="mono">{r.response.contentType?.split(';')[0] ?? '—'}</span>
+              <span className="mono">{r.response.sizeBytes} B</span>
+              {r.response.bodyTruncated && <span className="muted">{t('truncated')}</span>}
+            </span>
             {r.response.body !== '' && <Seg modes={respModes} mode={effRespMode} onPick={setRespMode} />}
             <CopyButton
               text={

@@ -582,11 +582,30 @@ body {
 .step-details header {
   display: flex;
   align-items: center;
+  gap: 12px;
   padding: 7px 20px;
-  background: var(--section-head);
+  background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
   font-size: 11px;
+}
+/* the request and response headers carry the line itself, not a section word */
+.detail-head-line {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+.detail-head-line .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-head-method {
+  color: var(--accent);
+  font-weight: 600;
+}
+.detail-head-url {
+  color: var(--text-primary);
 }
 
 .spin {
@@ -598,25 +617,24 @@ body {
   }
 }
 
+/* value rows carry a zebra instead of rules: at 26px a border on every row reads as noise */
 .kv-row {
   display: flex;
   gap: 12px;
-  align-items: baseline;
+  align-items: center;
   min-height: 26px;
   padding: 4px 20px;
-  border-top: 1px solid var(--border);
   font-size: 11px;
 }
-.kv-row:first-of-type,
-.step-details header + .kv-row {
-  border-top: 0;
+.kv-row:nth-of-type(even) {
+  background: var(--row-alt);
 }
 
 .check-row {
   display: grid;
-  grid-template-columns: 14px minmax(140px, 260px) 60px 1fr 40px 1fr;
+  grid-template-columns: 14px minmax(140px, 200px) 60px 1fr 60px 1fr;
   gap: 12px;
-  align-items: baseline;
+  align-items: center;
   min-height: 26px;
   padding: 4px 20px;
   border-top: 1px solid var(--border);
@@ -625,9 +643,7 @@ body {
 .check-row:first-of-type {
   border-top: 0;
 }
-.check-row.passed {
-  background: var(--tint-ok);
-}
+/* a passed check stays quiet — only the failure is worth a tint */
 .check-row.failed {
   background: var(--tint-fail);
 }
@@ -651,14 +667,13 @@ body {
   display: grid;
   grid-template-columns: 48px minmax(120px, 180px) 1fr minmax(120px, 260px) auto;
   gap: 12px;
-  align-items: baseline;
+  align-items: center;
   min-height: 26px;
   padding: 4px 20px;
-  border-top: 1px solid var(--border);
   font-size: 11px;
 }
-.capture-row:first-of-type {
-  border-top: 0;
+.capture-row:nth-of-type(even) {
+  background: var(--row-alt);
 }
 .capture-detail {
   font-size: 10px;
@@ -710,21 +725,18 @@ body {
   display: grid;
   grid-template-columns: 48px minmax(220px, 360px) 1fr;
   gap: 12px;
-  align-items: baseline;
+  align-items: center;
   min-height: 26px;
   padding: 4px 20px;
-  border-top: 1px solid var(--border);
 }
-.json-tree > div.jt-row:first-child,
-.json-tree > details:first-child > summary.jt-row {
-  border-top: 0;
+.jt-row:nth-child(even) {
+  background: var(--row-alt);
 }
 .jt-row:hover {
   background: var(--bg-elev);
 }
-summary.jt-row {
+.jt-branch-row {
   cursor: pointer;
-  list-style: none;
 }
 .jt-type {
   color: var(--text-muted);
@@ -746,7 +758,7 @@ summary.jt-row {
   content: '▸';
   color: var(--text-muted);
 }
-details[open] > summary .jt-branch::before {
+.jt-branch.open::before {
   content: '▾';
 }
 .jt-string {

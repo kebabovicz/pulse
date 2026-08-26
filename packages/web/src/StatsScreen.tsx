@@ -286,7 +286,7 @@ export function StatsScreen({
   }, [project, window, host])
 
   if (!stats) return null
-  if (stats.scenarios.length === 0) {
+  if ((stats.scenarios ?? []).length === 0) {
     return (
       <div className="empty">
         <div>{t('noStatsYet')}</div>
@@ -295,6 +295,11 @@ export function StatsScreen({
     )
   }
 
+  // a server older than this page simply omits the newer tables
+  const flaky = stats.flaky ?? []
+  const slowest = stats.slowest ?? []
+  const unstable = stats.unstable ?? []
+  const stale = stats.stale ?? []
   const slower = stats.scenarios.filter((s) => (s.deltaPct ?? 0) > 0).length
   const failing = stats.scenarios.filter((s) => s.passRate !== null && s.passRate < 1).length
   const toggle = (scenario: string) =>
@@ -346,7 +351,7 @@ export function StatsScreen({
         {' · '}
         <span className="bad">{failing}</span> {t('scenariosFailing')}
         {' · '}
-        <span className="warn">{stats.flaky.length}</span> {t('stepsNotFirstTry')}
+        <span className="warn">{flaky.length}</span> {t('stepsNotFirstTry')}
       </div>
 
       <section
@@ -389,10 +394,10 @@ export function StatsScreen({
         <div className="stats-footnote muted">{t('pausesFootnote')}</div>
       </section>
 
-      {stats.flaky.length > 0 && <FlakyTable rows={stats.flaky} onOpenRun={onOpenRun} />}
-      {stats.slowest.length > 0 && <StepsTable title={t('slowestSteps')} rows={stats.slowest} metric="median" />}
-      {stats.unstable.length > 0 && <StepsTable title={t('unstableSteps')} rows={stats.unstable} metric="spread" />}
-      {stats.stale.length > 0 && <StaleTable rows={stats.stale} onOpenRun={onOpenRun} />}
+      {flaky.length > 0 && <FlakyTable rows={flaky} onOpenRun={onOpenRun} />}
+      {slowest.length > 0 && <StepsTable title={t('slowestSteps')} rows={slowest} metric="median" />}
+      {unstable.length > 0 && <StepsTable title={t('unstableSteps')} rows={unstable} metric="spread" />}
+      {stale.length > 0 && <StaleTable rows={stale} onOpenRun={onOpenRun} />}
     </div>
   )
 }

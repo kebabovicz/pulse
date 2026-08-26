@@ -1,7 +1,16 @@
-import type { CheckResult, PulseEvent, RunRecord, RunStatus, RunVar, StepPlan, StepResult, VarUsage } from '@pulse/shared'
+import type {
+  CheckResult,
+  PulseEvent,
+  RunRecord,
+  RunStatus,
+  RunVar,
+  StepPlan,
+  StepResult,
+  VarUsage,
+} from '@pulse/shared'
 
-// Состояние экрана прогона = свёртка потока событий (spec/events.md).
-// Живой прогон кормится редьюсером, исторический — fromRecord; экран один.
+// Run screen state is a fold of the event stream (spec/events.md).
+// A live run is fed through the reducer, a stored one through fromRecord; one screen for both.
 
 export type StepViewStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped'
 
@@ -49,8 +58,8 @@ export function fromRecord(record: RunRecord): RunState {
 }
 
 /**
- * Заготовка до события run-started: run === -1 означает «жду ближайший
- * run-started этого сценария» — события SSE могут прийти раньше ответа POST /run.
+ * Placeholder until run-started arrives: run === -1 means "adopt the next
+ * run-started of this scenario" — SSE events can outrun the POST /run response.
  */
 export function pendingRun(scenario: string): RunState {
   return {
@@ -117,8 +126,12 @@ export const fmtTotal = (ms: number): string => {
   return `${mm}:${(s % 60).toFixed(1).padStart(4, '0')}`
 }
 
-/** «3s» → «3 s» для показа; не парсит, только оформляет. */
+/** Formats "3s" as "3 s" for display; no parsing involved. */
 export const parseDurationLabel = (d: string): string => d.replace(/(\d+)(ms|s|m)/, '$1 $2')
 
-/** Имя файла сценария без папок и расширения — главный идентификатор в UI. */
-export const fileLabel = (path: string): string => path.split('/').pop()!.replace(/\.ya?ml$/, '')
+/** Scenario file name without folders or extension — the primary identifier in the UI. */
+export const fileLabel = (path: string): string =>
+  path
+    .split('/')
+    .pop()!
+    .replace(/\.ya?ml$/, '')

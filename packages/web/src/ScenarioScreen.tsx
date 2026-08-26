@@ -14,13 +14,18 @@ function CopyRaw({ text }: { text: string }) {
   )
 }
 
-// Вкладка Scenario: читаемый вид YAML-файла и сырой текст (read-only).
+// Scenario tab: a rendered view of the YAML file and its raw text (read-only).
 export function ScenarioScreen({ project, path }: { project: string; path: string }) {
   const [detail, setDetail] = useState<ScenarioDetail | null>(null)
   const [mode, setMode] = useState<'rendered' | 'raw'>('rendered')
 
-  useEffect(() => {
+  // drop stale content when the scenario changes, then load the new one
+  const [loadedPath, setLoadedPath] = useState(path)
+  if (loadedPath !== path) {
+    setLoadedPath(path)
     setDetail(null)
+  }
+  useEffect(() => {
     void fetchScenarioDetail(project, path).then(setDetail)
   }, [project, path])
 
@@ -103,7 +108,10 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
                     <span className="scn-step-expect">
                       {Array.isArray(step.expect.status) ? step.expect.status.join('|') : step.expect.status}
                       {' · '}
-                      {t('checksCount', 1 + Object.keys(step.expect.headers ?? {}).length + (step.expect.body?.length ?? 0))}
+                      {t(
+                        'checksCount',
+                        1 + Object.keys(step.expect.headers ?? {}).length + (step.expect.body?.length ?? 0),
+                      )}
                       {step.retry && <span className="warn"> · ×{step.retry.attempts}</span>}
                     </span>
                     <span className="scn-step-captures">

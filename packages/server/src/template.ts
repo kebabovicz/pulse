@@ -2,17 +2,16 @@ import { randomUUID } from 'node:crypto'
 
 export interface VarEntry {
   value: string
-  fromStep: string | null // null — из vars
+  fromStep: string | null // null means the value came from vars
   secret: boolean
 }
 
 const TEMPLATE = /\{\{\s*([^{}]+?)\s*\}\}/g
 
-const randomDigits = (n: number): string =>
-  Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('')
+const randomDigits = (n: number): string => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('')
 
-// Плоское пространство переменных прогона + генераторы {{random.*}} (SPEC.md).
-// Генератор вычисляется один раз на прогон на выражение.
+// Flat variable namespace of a run plus {{random.*}} generators (SPEC.md).
+// Each generator expression is evaluated once per run.
 export class TemplateSpace {
   private values = new Map<string, VarEntry>()
   private generated = new Map<string, string>()
@@ -27,21 +26,21 @@ export class TemplateSpace {
     return this.values.get(name)
   }
 
-  /** Подставляет шаблоны; used — имена использованных переменных (без генераторов). */
+  /** Interpolates templates; `used` lists referenced variables (generators excluded). */
   render(input: string): { text: string; used: string[] } {
     const used: string[] = []
     const text = input.replace(TEMPLATE, (match, expr: string) => {
       const generated = this.generate(expr)
       if (generated !== null) return generated
       const entry = this.values.get(expr)
-      if (!entry) return match // валидация не пропустит; на всякий случай оставляем как есть
+      if (!entry) return match // validation rejects unknown names; keep the raw text just in case
       used.push(expr)
       return entry.value
     })
     return { text, used }
   }
 
-  /** Прячет значения секретных переменных в тексте для снимков и событий. */
+  /** Masks secret values in text before it goes into snapshots and events. */
   mask(text: string): string {
     let out = text
     for (const { value, secret } of this.values.values()) {
@@ -66,7 +65,10 @@ export class TemplateSpace {
         value =
           m[1] === 'digits'
             ? randomDigits(n)
-            : Array.from({ length: n }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('')
+            : Array.from(
+                { length: n },
+                () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)],
+              ).join('')
       }
     }
     if (value !== null) this.generated.set(expr, value)

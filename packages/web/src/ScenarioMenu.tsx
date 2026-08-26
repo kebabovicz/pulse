@@ -3,7 +3,7 @@ import { deleteScenario, renameScenario, toggleCi } from './api'
 import { Check } from './icons'
 import { t } from './i18n'
 
-// Меню операций со сценарием: переименовать/перенести (правкой пути) и удалить.
+// Scenario actions: rename or move (by editing the path) and delete.
 export function ScenarioMenu({
   project,
   path,

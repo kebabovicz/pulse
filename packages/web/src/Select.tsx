@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from './icons'
 
-// Свой выпадающий список по токенам DESIGN.md — нативный select выглядит чужим.
+// Custom dropdown built on DESIGN.md tokens; a native select looks foreign here.
 export function Select({
   value,
   options,

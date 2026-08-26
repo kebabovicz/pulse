@@ -25,11 +25,11 @@ invalid and cannot run.
 ## File structure
 
 ```yaml
-name: string            # required: short scenario name
-description: string     # optional: one sentence on what is verified
-vars: {}                # optional: run parameters
-steps: []               # required: at least one step
-cleanup: []             # optional: teardown steps, see below
+name: string # required: short scenario name
+description: string # optional: one sentence on what is verified
+vars: {} # optional: run parameters
+steps: [] # required: at least one step
+cleanup: [] # optional: teardown steps, see below
 ```
 
 ### vars
@@ -39,10 +39,10 @@ Parameters the user sees and can override before a run.
 ```yaml
 vars:
   phone:
-    default: "{{random.phone}}"   # default value; generators allowed
+    default: '{{random.phone}}' # default value; generators allowed
   devApiKey:
-    secret: true                  # masked in the UI and in stored runs
-    default: ""
+    secret: true # masked in the UI and in stored runs
+    default: ''
 ```
 
 ### Step
@@ -50,15 +50,16 @@ vars:
 Exactly one action per step: `request` or `sleep`.
 
 ```yaml
-- id: create-user       # required: [a-z0-9-], unique across steps and cleanup.
-                        # Runs are matched by id — don't rename without a reason.
-  name: Create user     # optional: human-readable name for the UI
-  timeout: 10s          # optional: request timeout (default from project config)
-  request: {...}        # the action; or `sleep: 3s`
-  retry: {...}          # optional
-  expect: {...}         # required with request
-  capture: {...}        # optional
-  cookies: {...}        # optional
+- id:
+    create-user # required: [a-z0-9-], unique across steps and cleanup.
+    # Runs are matched by id — don't rename without a reason.
+  name: Create user # optional: human-readable name for the UI
+  timeout: 10s # optional: request timeout (default from project config)
+  request: { ... } # the action; or `sleep: 3s`
+  retry: { ... } # optional
+  expect: { ... } # required with request
+  capture: { ... } # optional
+  cookies: { ... } # optional
 ```
 
 Durations everywhere: `500ms`, `3s`, `1m`.
@@ -67,12 +68,12 @@ Durations everywhere: `500ms`, `3s`, `1m`.
 
 ```yaml
 request:
-  method: POST                    # GET | POST | PUT | PATCH | DELETE | HEAD | OPTIONS
-  path: /api/v1/users             # relative to the project's active host
+  method: POST # GET | POST | PUT | PATCH | DELETE | HEAD | OPTIONS
+  path: /api/v1/users # relative to the project's active host
   # url: https://...              # absolute URL instead of path (not affected by host switching)
   query: { page: 1 }
-  headers: { X-Dev-Key: "{{devApiKey}}" }
-  body: { phoneNumber: "{{phone}}" }   # object/array is sent as JSON
+  headers: { X-Dev-Key: '{{devApiKey}}' }
+  body: { phoneNumber: '{{phone}}' } # object/array is sent as JSON
   # body: "raw text"              # string is sent as-is; set contentType
   # contentType: text/plain
 ```
@@ -81,19 +82,19 @@ request:
 
 ```yaml
 expect:
-  status: 201            # number or list: [200, 201]
+  status: 201 # number or list: [200, 201]
   headers:
-    content-type: application/json    # substring match
+    content-type: application/json # substring match
   body:
-    - path: $.id         # JSONPath into the body; exactly one predicate per check:
-      exists: true       #   exists: true | false
+    - path: $.id # JSONPath into the body; exactly one predicate per check:
+      exists: true #   exists: true | false
     - path: $.phoneNumber
-      equals: "{{phone}}"          #   equality (interpolation works)
+      equals: '{{phone}}' #   equality (interpolation works)
     - path: $.error
-      matches: "token_.*"          #   regular expression
+      matches: 'token_.*' #   regular expression
     - path: $.items
-      type: array        #   string | number | boolean | object | array | null
-    - text: true         # whole non-JSON body
+      type: array #   string | number | boolean | object | array | null
+    - text: true # whole non-JSON body
       matches: 'Auth code: \d{6}'
 ```
 
@@ -106,13 +107,14 @@ Capture values from the response for later steps.
 
 ```yaml
 capture:
-  userId:       { from: body, path: $.id }                  # JSON body field
-  foundId:      { from: body, path: "$.items[?(@.name=='X')].id" } # filters work here too
-  otpCode:      { from: body, regex: 'code: (\d{6})' }      # first regex group
-  accessToken:  { from: body }         # whole body as a string, byte for byte:
-                                       # a JSON scalar keeps its quotes — use regex for the bare value
-  requestId:    { from: header, name: x-request-id }
-  refreshToken: { from: cookie, name: refreshToken }        # from the response Set-Cookie
+  userId: { from: body, path: $.id } # JSON body field
+  foundId: { from: body, path: "$.items[?(@.name=='X')].id" } # filters work here too
+  otpCode: { from: body, regex: 'code: (\d{6})' } # first regex group
+  accessToken:
+    { from: body } # whole body as a string, byte for byte:
+    # a JSON scalar keeps its quotes — use regex for the bare value
+  requestId: { from: header, name: x-request-id }
+  refreshToken: { from: cookie, name: refreshToken } # from the response Set-Cookie
 ```
 
 ### cookies
@@ -122,16 +124,16 @@ sent with subsequent requests. Override when needed:
 
 ```yaml
 cookies:
-  clear: true                                # empty the jar before this request
-  set: { refreshToken: "{{oldToken}}" }      # force a value over the jar
+  clear: true # empty the jar before this request
+  set: { refreshToken: '{{oldToken}}' } # force a value over the jar
 ```
 
 ### retry
 
 ```yaml
 retry:
-  attempts: 10     # max attempts
-  delay: 1s        # pause between attempts
+  attempts: 10 # max attempts
+  delay: 1s # pause between attempts
 ```
 
 The step repeats until `expect` fully passes or attempts run out. Use it to
@@ -180,14 +182,14 @@ vars:
     default: demo
   password:
     secret: true
-    default: ""
+    default: ''
 
 steps:
   - id: sign-in
     request:
       method: POST
       path: /api/auth/login
-      body: { login: "{{login}}", password: "{{password}}" }
+      body: { login: '{{login}}', password: '{{password}}' }
     expect:
       status: 200
       body:
@@ -200,8 +202,8 @@ steps:
     request:
       method: POST
       path: /api/orders
-      headers: { Authorization: "Bearer {{token}}", Idempotency-Key: "{{random.uuid}}" }
-      body: { sku: "demo-1", qty: 2 }
+      headers: { Authorization: 'Bearer {{token}}', Idempotency-Key: '{{random.uuid}}' }
+      body: { sku: 'demo-1', qty: 2 }
     expect:
       status: 201
       body:
@@ -214,7 +216,7 @@ steps:
     request:
       method: GET
       path: /api/orders/{{orderId}}
-      headers: { Authorization: "Bearer {{token}}" }
+      headers: { Authorization: 'Bearer {{token}}' }
     retry: { attempts: 10, delay: 1s }
     expect:
       status: 200
@@ -236,7 +238,7 @@ cleanup:
     request:
       method: DELETE
       path: /api/orders/{{orderId}}
-      headers: { Authorization: "Bearer {{token}}" }
+      headers: { Authorization: 'Bearer {{token}}' }
     expect:
       status: [204, 404]
 ```

@@ -1,4 +1,12 @@
-import type { ProjectView, RunIndexEntry, RunRecord, RunsGroup, Scenario, ScenarioListItem, ScenarioSummary } from '@pulse/shared'
+import type {
+  ProjectView,
+  RunIndexEntry,
+  RunRecord,
+  RunsGroup,
+  Scenario,
+  ScenarioListItem,
+  ScenarioSummary,
+} from '@pulse/shared'
 
 export class ApiError extends Error {
   constructor(

@@ -2,12 +2,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { RunIndexEntry, RunRecord } from '@pulse/shared'
 
-// Раскладка /data/runs — spec/config.md.
+// Layout of /data/runs is described in spec/config.md.
 export class RunStore {
   constructor(private dataDir: string) {}
 
   static scenarioKey(relPath: string): string {
-    return relPath.replace(/\.ya?ml$/, '').split(path.sep).join('__')
+    return relPath
+      .replace(/\.ya?ml$/, '')
+      .split(path.sep)
+      .join('__')
   }
 
   nextRun(projectId: string, key: string): number {
@@ -51,14 +54,14 @@ export class RunStore {
     fs.appendFileSync(path.join(this.dir(record.project, key), 'index.jsonl'), JSON.stringify(entry) + '\n')
   }
 
-  /** Удаляет историю: сценария (по относительному пути) или всего проекта. */
+  /** Clears history: for one scenario (by relative path) or for the whole project. */
   clear(projectId: string, scenarioRel?: string): void {
     const root = path.join(this.dataDir, 'runs', projectId)
     const target = scenarioRel ? path.join(root, RunStore.scenarioKey(scenarioRel)) : root
     fs.rmSync(target, { recursive: true, force: true })
   }
 
-  /** Переносит историю прогонов вслед за переименованием файла или папки сценариев. */
+  /** Moves run history along with a renamed scenario file or folder. */
   renamePaths(projectId: string, fromRel: string, toRel: string, isDir: boolean): void {
     const root = path.join(this.dataDir, 'runs', projectId)
     if (!fs.existsSync(root)) return

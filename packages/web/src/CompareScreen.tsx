@@ -11,7 +11,7 @@ interface Row {
   b?: RunRecord['steps'][number]
 }
 
-// Шаги сопоставляются по id; отсутствующие в одном из прогонов помечаются (req 48).
+// Steps are matched by id; ones missing from either run are marked (req 48).
 function pairSteps(a: RunRecord, b: RunRecord): Row[] {
   const ids = [...new Set([...a.steps.map((s) => s.id), ...b.steps.map((s) => s.id)])]
   return ids.map((id) => ({ id, a: a.steps.find((s) => s.id === id), b: b.steps.find((s) => s.id === id) }))
@@ -30,7 +30,17 @@ function Cell({ step }: { step?: RunRecord['steps'][number] }) {
   )
 }
 
-export function CompareScreen({ a, b, onClose, onOpen }: { a: RunRecord; b: RunRecord; onClose: () => void; onOpen: (run: number) => void }) {
+export function CompareScreen({
+  a,
+  b,
+  onClose,
+  onOpen,
+}: {
+  a: RunRecord
+  b: RunRecord
+  onClose: () => void
+  onOpen: (run: number) => void
+}) {
   const rows = pairSteps(a, b)
   const maxMs = Math.max(1, ...rows.flatMap((r) => [r.a?.durationMs ?? 0, r.b?.durationMs ?? 0]))
   const diverged = rows.filter((r) => r.a?.status !== r.b?.status).length
@@ -40,7 +50,8 @@ export function CompareScreen({ a, b, onClose, onOpen }: { a: RunRecord; b: RunR
 
   const runChip = (r: RunRecord) => (
     <button className={`run-chip ${r.status}`} onClick={() => onOpen(r.run)}>
-      <b>#{r.run}</b> {r.status === 'passed' ? t('passed') : r.status === 'failed' ? t('failed') : r.status} · {fmtTotal(r.durationMs)}{' '}
+      <b>#{r.run}</b> {r.status === 'passed' ? t('passed') : r.status === 'failed' ? t('failed') : r.status} ·{' '}
+      {fmtTotal(r.durationMs)}{' '}
       <span className="muted">
         {new Date(r.startedAt).toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })}{' '}
         {new Date(r.startedAt).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}

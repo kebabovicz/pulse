@@ -10,7 +10,7 @@ import type { Project } from './config.js'
 import type { EventBus } from './events.js'
 
 const require = createRequire(import.meta.url)
-const schema = require('@pulse/shared/scenario.schema.json')
+const schema = require('@pulse/shared/scenario.schema.json') as object
 
 const ajv = new Ajv2020({ allErrors: true, allowUnionTypes: true })
 const validateSchema = ajv.compile<Scenario>(schema)
@@ -19,28 +19,34 @@ const SCENARIO_EXT = /\.ya?ml$/
 
 export interface LoadedScenario {
   summary: ScenarioSummary
-  scenario: Scenario | null // null у невалидных
+  scenario: Scenario | null // null for invalid files
   raw: string
 }
 
-/** Полная проверка содержимого сценария: YAML → схема → семантика. */
-export function validateScenario(raw: string): { scenario: Scenario } | { error: { message: string; line?: number; column?: number } } {
+/** Full validation of scenario content: YAML -> schema -> semantics. */
+export function validateScenario(
+  raw: string,
+): { scenario: Scenario } | { error: { message: string; line?: number; column?: number } } {
   let doc: unknown
   try {
     doc = loadYaml(raw)
   } catch (e) {
     if (e instanceof YAMLException) {
-      return { error: { message: e.reason ?? e.message, line: e.mark && e.mark.line + 1, column: e.mark && e.mark.column + 1 } }
+      return {
+        error: { message: e.reason ?? e.message, line: e.mark && e.mark.line + 1, column: e.mark && e.mark.column + 1 },
+      }
     }
     throw e
   }
   if (!validateSchema(doc)) {
     const first = validateSchema.errors?.[0]
-    return { error: { message: first ? `${first.instancePath || 'корень'}: ${first.message}` : 'не соответствует схеме' } }
+    return {
+      error: { message: first ? `${first.instancePath || 'root'}: ${first.message}` : 'does not match the schema' },
+    }
   }
-  const semantic = semanticError(doc as Scenario)
+  const semantic = semanticError(doc)
   if (semantic) return { error: { message: semantic } }
-  return { scenario: doc as Scenario }
+  return { scenario: doc }
 }
 
 export function loadScenarioFile(absPath: string, relPath: string): LoadedScenario {
@@ -64,38 +70,45 @@ export function loadScenarioFile(absPath: string, relPath: string): LoadedScenar
     }
   }
   return {
-    summary: { path: relPath, name: result.scenario.name, stepCount: result.scenario.steps.length, valid: true, modifiedAt, hash },
+    summary: {
+      path: relPath,
+      name: result.scenario.name,
+      stepCount: result.scenario.steps.length,
+      valid: true,
+      modifiedAt,
+      hash,
+    },
     scenario: result.scenario,
     raw,
   }
 }
 
-// Правила, которые JSON Schema выразить не может (SPEC.md):
-// уникальность id, ссылки только назад, захват в занятое имя, известные генераторы.
+// Rules JSON Schema cannot express (SPEC.md): unique ids, backward-only
+// references, capturing into a used name, known generators.
 const BUILTIN = /^(random\.(phone|uuid|digits\(\d+\)|string\(\d+\))|timestamp|runStartedAt)$/
 
 export function semanticError(scenario: Scenario): string | null {
   const allSteps = [...scenario.steps, ...(scenario.cleanup ?? [])]
   const ids = new Set<string>()
   for (const step of allSteps) {
-    if (ids.has(step.id)) return `шаг "${step.id}": id не уникален`
+    if (ids.has(step.id)) return `step "${step.id}": id is not unique`
     ids.add(step.id)
   }
 
   const known = new Set(Object.keys(scenario.vars ?? {}))
   for (const [name, def] of Object.entries(scenario.vars ?? {})) {
     for (const ref of collectRefs(def.default)) {
-      if (!BUILTIN.test(ref)) return `vars.${name}: неизвестная подстановка {{${ref}}}`
+      if (!BUILTIN.test(ref)) return `vars.${name}: unknown interpolation {{${ref}}}`
     }
   }
   for (const step of allSteps) {
     for (const ref of stepRefs(step)) {
       if (BUILTIN.test(ref) || known.has(ref)) continue
-      return `шаг "${step.id}": {{${ref}}} не определена выше (vars или capture предыдущих шагов)`
+      return `step "${step.id}": {{${ref}}} is not defined above (vars or an earlier capture)`
     }
     if (isRequestStep(step)) {
       for (const name of Object.keys(step.capture ?? {})) {
-        if (known.has(name)) return `шаг "${step.id}": capture в занятое имя "${name}"`
+        if (known.has(name)) return `step "${step.id}": capture into an already used name "${name}"`
         known.add(name)
       }
     }

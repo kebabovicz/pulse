@@ -2,12 +2,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 interface AppState {
-  activeHost?: Record<string, string> // projectId → имя хоста
-  customHosts?: Record<string, Record<string, string>> // projectId → {имя: url}, добавленные из UI
-  ciScenarios?: Record<string, string[]> // projectId → пути сценариев деплой-набора
+  activeHost?: Record<string, string> // projectId -> host name
+  customHosts?: Record<string, Record<string, string>> // projectId -> {name: url}, added from the UI
+  ciScenarios?: Record<string, string[]> // projectId -> scenario paths of the deploy suite
 }
 
-// Мелкое персистентное состояние приложения (spec/config.md: /data/state.json).
+// Small persistent app state (spec/config.md: /data/state.json).
 export class StateStore {
   private file: string
 

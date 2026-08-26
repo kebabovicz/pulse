@@ -4,7 +4,7 @@ import { addHost, deleteHost, setActiveHost } from './api'
 import { Check, ChevronDown, Cross } from './icons'
 import { t } from './i18n'
 
-// Выбор активного хоста проекта + добавление/удаление хостов, вписанных руками.
+// Active host picker plus adding and removing manually entered hosts.
 export function HostMenu({ project, onChanged }: { project: ProjectView; onChanged: () => void }) {
   const [open, setOpen] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -61,7 +61,10 @@ export function HostMenu({ project, onChanged }: { project: ProjectView; onChang
         <div className="select-menu host-menu">
           {Object.entries(project.hosts).map(([hostName, hostUrl]) => (
             <div key={hostName} className="host-row">
-              <button className={`select-item${hostName === project.activeHost ? ' active' : ''}`} onClick={() => void pick(hostName)}>
+              <button
+                className={`select-item${hostName === project.activeHost ? ' active' : ''}`}
+                onClick={() => void pick(hostName)}
+              >
                 <span className="select-check">{hostName === project.activeHost && <Check size={12} />}</span>
                 {hostName}
                 <span className="muted host-url">{hostUrl}</span>

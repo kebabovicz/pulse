@@ -3,7 +3,7 @@ import { fetchScenarioDetail, type ScenarioVar } from './api'
 import { Cross, Eye, EyeOff } from './icons'
 import { t } from './i18n'
 
-// Переопределения запоминаются для пары проект+сценарий (DESIGN.md req 13).
+// Overrides are remembered per project + scenario pair (DESIGN.md req 13).
 const varsKey = (project: string, path: string) => `pulse.vars.${project}.${path}`
 
 export function loadRemembered(project: string, path: string): Record<string, string> {
@@ -43,7 +43,7 @@ export function RunModal({
     onLaunch(overrides)
   }
   if (vars.length === 0) {
-    // без переменных модалке нечего спрашивать — запускаем сразу
+    // nothing to ask about without variables: run straight away
     launch()
     return null
   }
@@ -59,7 +59,10 @@ export function RunModal({
         </div>
         <div className="modal-section">{t('scenarioVars')}</div>
         {vars.map((v) => (
-          <label key={v.name} className={`var-row${v.secret && !(values[v.name] ?? v.default) ? ' missing-secret' : ''}`}>
+          <label
+            key={v.name}
+            className={`var-row${v.secret && !(values[v.name] ?? v.default) ? ' missing-secret' : ''}`}
+          >
             <span className="mono">{v.name}</span>
             <input
               type={v.secret && !shown.has(v.name) ? 'password' : 'text'}

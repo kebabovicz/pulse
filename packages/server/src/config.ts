@@ -13,7 +13,7 @@ export interface Settings {
 export interface Project {
   id: string
   name: string
-  hosts: Record<string, string> // имя хоста → base URL; первый — по умолчанию
+  hosts: Record<string, string> // host name -> base URL; the first one is the default
   scenariosDir: string
   healthPath?: string
   stepTimeoutMs: number
@@ -23,7 +23,7 @@ export interface Project {
 export interface AppConfig {
   settings: Settings
   projects: Project[]
-  errors: string[] // невалидные записи не роняют приложение, а показываются
+  errors: string[] // invalid entries do not crash the app, they are surfaced instead
 }
 
 export function configPath(dataDir: string): string {
@@ -52,31 +52,33 @@ export function loadConfig(dataDir: string): AppConfig {
   for (const [i, p] of (rawProjects as Record<string, unknown>[]).entries()) {
     const label = `projects[${i}]${typeof p?.id === 'string' ? ` (${p.id})` : ''}`
     const problems: string[] = []
-    if (typeof p?.id !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p.id)) problems.push('id: латиница/цифры/дефис')
+    if (typeof p?.id !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p.id))
+      problems.push('id: lowercase letters, digits, dashes')
 
-    // hosts: {имя: url} либо baseUrl как сокращение для единственного хоста
+    // hosts: {name: url}, or baseUrl as a shorthand for a single host
     const isUrl = (u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)
     let hosts: Record<string, string> = {}
     if (p?.hosts && typeof p.hosts === 'object') {
       for (const [name, url] of Object.entries(p.hosts as Record<string, unknown>)) {
-        if (!/^[a-z][a-z0-9-]*$/.test(name)) problems.push(`hosts.${name}: имя — латиница/цифры/дефис`)
-        else if (!isUrl(url)) problems.push(`hosts.${name}: не URL`)
+        if (!/^[a-z][a-z0-9-]*$/.test(name))
+          problems.push(`hosts.${name}: name must be lowercase letters, digits, dashes`)
+        else if (!isUrl(url)) problems.push(`hosts.${name}: not a URL`)
         else hosts[name] = url.replace(/\/+$/, '')
       }
     } else if (isUrl(p?.baseUrl)) {
-      hosts = { local: (p.baseUrl as string).replace(/\/+$/, '') }
+      hosts = { local: p.baseUrl.replace(/\/+$/, '') }
     }
-    if (Object.keys(hosts).length === 0) problems.push('нужен baseUrl или hosts')
+    if (Object.keys(hosts).length === 0) problems.push('baseUrl or hosts is required')
 
-    // по умолчанию сценарии живут в хранилище Pulse: /data/scenarios/<id>
+    // by default scenarios live in Pulse's own storage: /data/scenarios/<id>
     const scenariosDir =
       typeof p?.scenariosDir === 'string' && p.scenariosDir
         ? p.scenariosDir
-        : path.join(dataDir, 'scenarios', String(p?.id ?? ''))
+        : path.join(dataDir, 'scenarios', typeof p?.id === 'string' ? p.id : '')
     if (typeof p?.scenariosDir === 'string' && !fs.existsSync(p.scenariosDir)) {
-      problems.push(`scenariosDir не существует: ${p.scenariosDir}`)
+      problems.push(`scenariosDir does not exist: ${p.scenariosDir}`)
     }
-    if (projects.some((x) => x.id === p?.id)) problems.push('id не уникален')
+    if (projects.some((x) => x.id === p?.id)) problems.push('id is not unique')
     if (problems.length) {
       errors.push(`${label}: ${problems.join('; ')}`)
       continue

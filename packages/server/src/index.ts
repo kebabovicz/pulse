@@ -28,19 +28,22 @@ const state = new StateStore(dataDir)
 const appCtx: AppContext = { config: () => config, scenarios, health, bus, runner, runs, dataDir, state }
 const apply = async () => {
   await scenarios.start(config.projects)
-  health.start(config.projects, config.settings.healthIntervalMs, (p) => appCtx.resolveBaseUrl?.(p) ?? Object.values(p.hosts)[0])
+  health.start(
+    config.projects,
+    config.settings.healthIntervalMs,
+    (p) => appCtx.resolveBaseUrl?.(p) ?? Object.values(p.hosts)[0],
+  )
 }
 
-
-chokidar.watch(configPath(dataDir), { ignoreInitial: true }).on('all', async () => {
+chokidar.watch(configPath(dataDir), { ignoreInitial: true }).on('all', () => {
   config = loadConfig(dataDir)
-  await apply()
+  void apply()
 })
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
 await app.register(fastifyCookie)
 
-// один аккаунт из окружения; без PULSE_PASSWORD защита выключена
+// single account from the environment; without PULSE_PASSWORD auth is disabled
 const auth = new Auth(dataDir)
 const SESSION_COOKIE = 'pulse_session'
 const YEAR = 60 * 60 * 24 * 365
@@ -55,7 +58,7 @@ app.post<{ Body: { user?: string; password?: string } }>('/api/login', (req, rep
 
 app.addHook('onRequest', (req, reply, done) => {
   if (!auth.enabled || !req.url.startsWith('/api') || req.url === '/api/login') return done()
-  // CI ходит без cookie: Authorization: Bearer <PULSE_PASSWORD>
+  // CI calls without a cookie: Authorization: Bearer <PULSE_PASSWORD>
   if (req.headers.authorization === `Bearer ${process.env.PULSE_PASSWORD}`) return done()
   if (!auth.verify(req.cookies[SESSION_COOKIE])) return reply.code(401).send({ message: 'unauthorized' })
   done()
@@ -69,5 +72,5 @@ if (fs.existsSync(webDir)) {
   await app.register(fastifyStatic, { root: webDir })
 }
 
-for (const message of config.errors) app.log.warn(`конфиг: ${message}`)
+for (const message of config.errors) app.log.warn(`config: ${message}`)
 await app.listen({ port, host: '0.0.0.0' })

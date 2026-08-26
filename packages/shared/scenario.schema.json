@@ -3,10 +3,7 @@
   "$id": "https://pulse.local/spec/scenario.schema.json",
   "title": "Pulse scenario",
   "type": "object",
-  "required": [
-    "name",
-    "steps"
-  ],
+  "required": ["name", "steps"],
   "additionalProperties": false,
   "properties": {
     "name": {
@@ -47,11 +44,7 @@
       "additionalProperties": false,
       "properties": {
         "default": {
-          "type": [
-            "string",
-            "number",
-            "boolean"
-          ]
+          "type": ["string", "number", "boolean"]
         },
         "secret": {
           "type": "boolean"
@@ -60,9 +53,7 @@
     },
     "step": {
       "type": "object",
-      "required": [
-        "id"
-      ],
+      "required": ["id"],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -103,61 +94,42 @@
       },
       "oneOf": [
         {
-          "required": [
-            "request",
-            "expect"
-          ],
+          "required": ["request", "expect"],
           "not": {
-            "required": [
-              "sleep"
-            ]
+            "required": ["sleep"]
           }
         },
         {
-          "required": [
-            "sleep"
-          ],
+          "required": ["sleep"],
           "allOf": [
             {
               "not": {
-                "required": [
-                  "request"
-                ]
+                "required": ["request"]
               }
             },
             {
               "not": {
-                "required": [
-                  "expect"
-                ]
+                "required": ["expect"]
               }
             },
             {
               "not": {
-                "required": [
-                  "capture"
-                ]
+                "required": ["capture"]
               }
             },
             {
               "not": {
-                "required": [
-                  "cookies"
-                ]
+                "required": ["cookies"]
               }
             },
             {
               "not": {
-                "required": [
-                  "retry"
-                ]
+                "required": ["retry"]
               }
             },
             {
               "not": {
-                "required": [
-                  "timeout"
-                ]
+                "required": ["timeout"]
               }
             }
           ]
@@ -166,21 +138,11 @@
     },
     "request": {
       "type": "object",
-      "required": [
-        "method"
-      ],
+      "required": ["method"],
       "additionalProperties": false,
       "properties": {
         "method": {
-          "enum": [
-            "GET",
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE",
-            "HEAD",
-            "OPTIONS"
-          ]
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
         },
         "path": {
           "type": "string",
@@ -193,11 +155,7 @@
         "query": {
           "type": "object",
           "additionalProperties": {
-            "type": [
-              "string",
-              "number",
-              "boolean"
-            ]
+            "type": ["string", "number", "boolean"]
           }
         },
         "headers": {
@@ -213,32 +171,22 @@
       },
       "oneOf": [
         {
-          "required": [
-            "path"
-          ],
+          "required": ["path"],
           "not": {
-            "required": [
-              "url"
-            ]
+            "required": ["url"]
           }
         },
         {
-          "required": [
-            "url"
-          ],
+          "required": ["url"],
           "not": {
-            "required": [
-              "path"
-            ]
+            "required": ["path"]
           }
         }
       ]
     },
     "expect": {
       "type": "object",
-      "required": [
-        "status"
-      ],
+      "required": ["status"],
       "additionalProperties": false,
       "properties": {
         "status": {
@@ -258,10 +206,7 @@
         "headers": {
           "type": "object",
           "additionalProperties": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         },
         "body": {
@@ -282,9 +227,7 @@
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "path"
-          ],
+          "required": ["path"],
           "additionalProperties": false,
           "properties": {
             "path": {
@@ -295,49 +238,26 @@
               "type": "boolean"
             },
             "equals": {
-              "type": [
-                "string",
-                "number",
-                "boolean",
-                "null"
-              ]
+              "type": ["string", "number", "boolean", "null"]
             },
             "matches": {
               "type": "string"
             },
             "type": {
-              "enum": [
-                "string",
-                "number",
-                "boolean",
-                "object",
-                "array",
-                "null"
-              ]
+              "enum": ["string", "number", "boolean", "object", "array", "null"]
             },
             "notEquals": {
-              "type": [
-                "string",
-                "number",
-                "boolean",
-                "null"
-              ]
+              "type": ["string", "number", "boolean", "null"]
             },
             "equalsPath": {
               "type": "string",
               "pattern": "^\\$"
             },
             "gt": {
-              "type": [
-                "string",
-                "number"
-              ]
+              "type": ["string", "number"]
             },
             "lt": {
-              "type": [
-                "string",
-                "number"
-              ]
+              "type": ["string", "number"]
             },
             "length": {
               "type": "integer",
@@ -354,68 +274,43 @@
           },
           "oneOf": [
             {
-              "required": [
-                "exists"
-              ]
+              "required": ["exists"]
             },
             {
-              "required": [
-                "equals"
-              ]
+              "required": ["equals"]
             },
             {
-              "required": [
-                "matches"
-              ]
+              "required": ["matches"]
             },
             {
-              "required": [
-                "type"
-              ]
+              "required": ["type"]
             },
             {
-              "required": [
-                "notEquals"
-              ]
+              "required": ["notEquals"]
             },
             {
-              "required": [
-                "equalsPath"
-              ]
+              "required": ["equalsPath"]
             },
             {
-              "required": [
-                "gt"
-              ]
+              "required": ["gt"]
             },
             {
-              "required": [
-                "lt"
-              ]
+              "required": ["lt"]
             },
             {
-              "required": [
-                "length"
-              ]
+              "required": ["length"]
             },
             {
-              "required": [
-                "minLength"
-              ]
+              "required": ["minLength"]
             },
             {
-              "required": [
-                "maxLength"
-              ]
+              "required": ["maxLength"]
             }
           ]
         },
         {
           "type": "object",
-          "required": [
-            "text",
-            "matches"
-          ],
+          "required": ["text", "matches"],
           "additionalProperties": false,
           "properties": {
             "text": {
@@ -432,9 +327,7 @@
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "from"
-          ],
+          "required": ["from"],
           "additionalProperties": false,
           "properties": {
             "from": {
@@ -449,25 +342,16 @@
             }
           },
           "not": {
-            "required": [
-              "path",
-              "regex"
-            ]
+            "required": ["path", "regex"]
           }
         },
         {
           "type": "object",
-          "required": [
-            "from",
-            "name"
-          ],
+          "required": ["from", "name"],
           "additionalProperties": false,
           "properties": {
             "from": {
-              "enum": [
-                "header",
-                "cookie"
-              ]
+              "enum": ["header", "cookie"]
             },
             "name": {
               "type": "string",
@@ -496,10 +380,7 @@
     },
     "retry": {
       "type": "object",
-      "required": [
-        "attempts",
-        "delay"
-      ],
+      "required": ["attempts", "delay"],
       "additionalProperties": false,
       "properties": {
         "attempts": {

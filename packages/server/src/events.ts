@@ -9,7 +9,7 @@ export class EventBus {
     for (const client of this.clients) client.raw.write(frame)
   }
 
-  // вызывать после reply.hijack()
+  // call after reply.hijack()
   subscribe(reply: FastifyReply): void {
     reply.raw.writeHead(200, {
       'content-type': 'text/event-stream',

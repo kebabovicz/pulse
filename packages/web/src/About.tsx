@@ -3,7 +3,7 @@ import { t } from './i18n'
 
 export const APP_VERSION = '0.1.0'
 
-// Окно «о приложении» — единственное место со сведениями о продукте и авторе.
+// The about dialog: the single place with product and author information.
 export function About({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>

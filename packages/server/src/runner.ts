@@ -2,9 +2,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { JSONPath } from 'jsonpath-plus'
 import {
   isRequestStep,
-  type BodyCheck,
   type CaptureResult,
-  type CheckResult,
   type RequestStep,
   type RunRecord,
   type RunVar,
@@ -16,15 +14,13 @@ import {
   type Substitution,
   type VarUsage,
 } from '@pulse/shared'
+import { evalChecks, failedLabels } from './checks.js'
 import type { Project, Settings } from './config.js'
 import type { EventBus } from './events.js'
 import { stepRefs, type LoadedScenario } from './scenarios.js'
 import { RunStore } from './storage.js'
 import { TemplateSpace } from './template.js'
 import { parseDuration } from './util.js'
-
-const PREVIEW_LIMIT = 120
-const preview = (s: string): string => (s.length > PREVIEW_LIMIT ? `${s.slice(0, PREVIEW_LIMIT)}…` : s)
 
 interface ActiveRun {
   run: number
@@ -40,7 +36,7 @@ interface RunCtx {
   run: number
   space: TemplateSpace
   jar: Map<string, string>
-  signal: AbortSignal // меняется между фазами: main = стоп ∪ таймаут, cleanup = только стоп
+  signal: AbortSignal // swapped between phases: main = stop or timeout, cleanup = stop only
   bodyLimit: number
 }
 
@@ -67,7 +63,7 @@ export class Runner {
     return Boolean(active)
   }
 
-  /** Запускает прогон в фоне, сразу возвращает его номер. */
+  /** Starts a run in the background and returns its number immediately. */
   start(
     project: Project,
     loaded: LoadedScenario,
@@ -76,8 +72,8 @@ export class Runner {
     baseUrl: string,
     trigger?: 'ci',
   ): { run: number; finished: Promise<RunRecord> } {
-    if (!loaded.scenario) throw new Error('сценарий невалиден')
-    if (this.active.has(project.id)) throw new Error('прогон уже идёт')
+    if (!loaded.scenario) throw new Error('scenario is invalid')
+    if (this.active.has(project.id)) throw new Error('a run is already in progress')
 
     const scenario = loaded.scenario
     const relPath = loaded.summary.path
@@ -118,7 +114,7 @@ export class Runner {
     space: TemplateSpace,
     signal: AbortSignal,
   ): Promise<void> {
-    // runTimeout обрывает основные шаги, ручной стоп (signal) — вообще всё
+    // runTimeout aborts the main steps; a manual stop (signal) aborts everything
     const runAbort = new AbortController()
     const timer = setTimeout(() => runAbort.abort(), project.runTimeoutMs)
     const ctx: RunCtx = {
@@ -156,10 +152,10 @@ export class Runner {
     }
     clearTimeout(timer)
     const timedOut = runAbort.signal.aborted && !signal.aborted
-    ctx.signal = signal // уборку прерывает только ручной стоп
+    ctx.signal = signal // only a manual stop interrupts cleanup
 
-    // уборка: выполняется и после провала (тогда она нужнее всего);
-    // при ручной остановке пропускается, провалы не скипают соседние cleanup-шаги
+    // cleanup runs even after a failure (that is when it matters most);
+    // a manual stop skips it, and a failed cleanup step does not skip its siblings
     let cleanupFailed = false
     const cleanupSteps = scenario.cleanup ?? []
     for (const [i, step] of cleanupSteps.entries()) {
@@ -254,7 +250,9 @@ export class Runner {
       jar.set(name, track(`cookies.${name}`, value))
     }
 
-    const url = new URL(step.request.url ? track('url', step.request.url) : ctx.baseUrl + track('url', step.request.path!))
+    const url = new URL(
+      step.request.url ? track('url', step.request.url) : ctx.baseUrl + track('url', step.request.path!),
+    )
     for (const [name, value] of Object.entries(step.request.query ?? {})) {
       url.searchParams.set(name, track(`query.${name}`, String(value)))
     }
@@ -300,7 +298,8 @@ export class Runner {
     } catch (e) {
       if (ctx.signal.aborted) return { status: 'failed', request: snapshot }
       const cause = (e as { cause?: { code?: string } }).cause
-      const message = (e as Error).name === 'TimeoutError' ? `timeout ${timeoutMs} ms` : (cause?.code ?? (e as Error).message)
+      const message =
+        (e as Error).name === 'TimeoutError' ? `timeout ${timeoutMs} ms` : (cause?.code ?? (e as Error).message)
       return { status: 'failed', request: snapshot, response: null, checks: [], error: { kind: 'network', message } }
     }
     const durationMs = Math.round(performance.now() - t0)
@@ -317,7 +316,9 @@ export class Runner {
     }
     for (const [name, value] of setCookies) ctx.jar.set(name, value)
 
-    const stored = isText ? buf.subarray(0, ctx.bodyLimit).toString('utf8') : buf.subarray(0, ctx.bodyLimit).toString('base64')
+    const stored = isText
+      ? buf.subarray(0, ctx.bodyLimit).toString('utf8')
+      : buf.subarray(0, ctx.bodyLimit).toString('base64')
     const response = {
       status: res.status,
       durationMs,
@@ -334,7 +335,7 @@ export class Runner {
       try {
         json = JSON.parse(text)
       } catch {
-        /* не JSON — body-path проверки дадут null */
+        /* not JSON: body-path checks will report null */
       }
     }
     const checks = evalChecks(step.expect, res, text, json, (s) => space.render(s).text)
@@ -342,11 +343,11 @@ export class Runner {
 
     const captures: CaptureResult[] = []
     for (const [name, spec] of Object.entries(step.capture ?? {})) {
-      let value = ''
-      let detail = ''
+      let value: string
+      let detail: string
       if (spec.from === 'body') {
         if (spec.path) {
-          const found = JSONPath({ path: spec.path, json: json ?? null, wrap: true }) as unknown[]
+          const found: unknown[] = JSONPath({ path: spec.path, json: json ?? null, wrap: true })
           value = found.length ? String(found[0]) : ''
           detail = spec.path
         } else if (spec.regex) {
@@ -381,7 +382,12 @@ function initVars(scenario: Scenario, overrides: Record<string, string>, space: 
     const override = overrides[name]
     const value = space.render(override ?? String(def.default ?? '')).text
     space.set(name, { value, fromStep: null, secret })
-    vars.push({ name, value: secret ? '•••' : value, ...(secret && { secret }), source: override !== undefined ? 'manual' : 'default' })
+    vars.push({
+      name,
+      value: secret ? '•••' : value,
+      ...(secret && { secret }),
+      source: override !== undefined ? 'manual' : 'default',
+    })
   }
   return vars
 }
@@ -419,104 +425,4 @@ function buildVarUsage(scenario: Scenario): VarUsage {
     }
   }
   return usage
-}
-
-function evalChecks(
-  expect: RequestStep['expect'],
-  res: Response,
-  text: string,
-  json: unknown,
-  render: (s: string) => string,
-): CheckResult[] {
-  const results: CheckResult[] = []
-  const statuses = Array.isArray(expect.status) ? expect.status : [expect.status]
-  results.push({
-    kind: 'status',
-    expected: statuses.join(' | '),
-    actual: String(res.status),
-    passed: statuses.includes(res.status),
-  })
-  for (const [name, want] of Object.entries(expect.headers ?? {})) {
-    const actual = res.headers.get(name)
-    if (want === null) {
-      results.push({ kind: 'header', name, expected: 'absent', actual, passed: actual === null })
-    } else {
-      const expected = render(want)
-      results.push({ kind: 'header', name, expected, actual, passed: actual !== null && actual.includes(expected) })
-    }
-  }
-  for (const check of expect.body ?? []) {
-    results.push(evalBodyCheck(check, text, json, render))
-  }
-  return results
-}
-
-function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s: string) => string): CheckResult {
-  if ('text' in check) {
-    const expected = render(check.matches)
-    return {
-      kind: 'body-text',
-      expected,
-      actual: preview(text),
-      passed: new RegExp(expected).test(text),
-    }
-  }
-  const found = json === undefined ? [] : (JSONPath({ path: check.path, json: json as never, wrap: true }) as unknown[])
-  const value = found[0]
-  const actual = found.length === 0 ? null : typeof value === 'string' ? value : JSON.stringify(value)
-  if (check.exists !== undefined) {
-    return { kind: 'body-path', path: check.path, predicate: 'exists', expected: String(check.exists), actual, passed: found.length > 0 === check.exists }
-  }
-  if (check.equals !== undefined) {
-    const expected = typeof check.equals === 'string' ? render(check.equals) : String(check.equals)
-    return { kind: 'body-path', path: check.path, predicate: 'equals', expected, actual, passed: found.length > 0 && String(value) === expected }
-  }
-  if (check.notEquals !== undefined) {
-    const expected = typeof check.notEquals === 'string' ? render(check.notEquals) : String(check.notEquals)
-    return { kind: 'body-path', path: check.path, predicate: 'notEquals', expected: `≠ ${expected}`, actual, passed: found.length > 0 && String(value) !== expected }
-  }
-  if (check.equalsPath !== undefined) {
-    const otherFound = json === undefined ? [] : (JSONPath({ path: check.equalsPath, json: json as never, wrap: true }) as unknown[])
-    const other = otherFound.length === 0 ? null : otherFound[0]
-    const expected = `${check.equalsPath} = ${other === null ? '—' : typeof other === 'string' ? other : JSON.stringify(other)}`
-    return { kind: 'body-path', path: check.path, predicate: 'equalsPath', expected, actual, passed: found.length > 0 && otherFound.length > 0 && String(value) === String(other) }
-  }
-  if (check.matches !== undefined) {
-    const expected = render(check.matches)
-    return { kind: 'body-path', path: check.path, predicate: 'matches', expected, actual, passed: found.length > 0 && new RegExp(expected).test(String(value)) }
-  }
-  if (check.gt !== undefined || check.lt !== undefined) {
-    const op = check.gt !== undefined ? 'gt' : 'lt'
-    const raw = check.gt ?? check.lt
-    const expected = typeof raw === 'string' ? render(raw) : String(raw)
-    // числа сравниваются численно, строки — лексикографически (ISO-даты корректны)
-    const bothNumeric = typeof value === 'number' && !Number.isNaN(Number(expected))
-    const cmp = found.length === 0 ? 0 : bothNumeric ? Number(value) - Number(expected) : String(value) < expected ? -1 : String(value) > expected ? 1 : 0
-    const passed = found.length > 0 && (op === 'gt' ? cmp > 0 : cmp < 0)
-    return { kind: 'body-path', path: check.path, predicate: op, expected: `${op === 'gt' ? '>' : '<'} ${expected}`, actual, passed }
-  }
-  if (check.length !== undefined || check.minLength !== undefined || check.maxLength !== undefined) {
-    const size = typeof value === 'string' || Array.isArray(value) ? value.length : null
-    const predicate = check.length !== undefined ? 'length' : check.minLength !== undefined ? 'minLength' : 'maxLength'
-    const bound = check.length ?? check.minLength ?? check.maxLength ?? 0
-    const expected = predicate === 'length' ? `length ${bound}` : predicate === 'minLength' ? `length ≥ ${bound}` : `length ≤ ${bound}`
-    const passed =
-      size !== null && (predicate === 'length' ? size === bound : predicate === 'minLength' ? size >= bound : size <= bound)
-    return { kind: 'body-path', path: check.path, predicate, expected, actual: size === null ? actual : `length ${size}`, passed }
-  }
-  const actualType = found.length === 0 ? null : value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value
-  return { kind: 'body-path', path: check.path, predicate: 'type', expected: String(check.type), actual: actualType, passed: actualType === check.type }
-}
-
-function failedLabels(outcome: Pick<StepResult, 'checks' | 'error'>): string[] {
-  if (outcome.error) return [outcome.error.message]
-  const labels: string[] = []
-  let bodyIndex = 0
-  for (const check of outcome.checks ?? []) {
-    const isBody = check.kind === 'body-path' || check.kind === 'body-text'
-    const label = check.kind === 'status' ? 'status' : check.kind === 'header' ? `headers.${check.name}` : `body[${bodyIndex}]`
-    if (isBody) bodyIndex++
-    if (!check.passed) labels.push(label)
-  }
-  return labels
 }

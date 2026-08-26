@@ -10,7 +10,7 @@ step live: requests, responses, checks, captured variables, timings.
 
 Poking a business flow by hand — curl, Postman, Swagger — is slow, and the
 result disappears the moment you close the terminal. Pulse turns a flow like
-*"sign in, create an order, verify the totals and access rules"*
+_"sign in, create an order, verify the totals and access rules"_
 into a YAML file that runs in seconds and leaves a browsable record: what was
 called, with which payload, what came back, which check failed and where the
 time went.

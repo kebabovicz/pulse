@@ -283,8 +283,10 @@ const PLURAL = /\{(\d+)\|([^{}|]*)\|([^{}|]*)\|([^{}|]*)\}/g
 
 export function t(key: keyof typeof en, ...args: (string | number)[]): string {
   let s: string = dict[key]
-  s = s.replace(PLURAL, (_, index: string, one: string, few: string, many: string) =>
-    [one, few, many][pluralIndex(Number(args[Number(index)]) || 0)],
+  s = s.replace(
+    PLURAL,
+    (_, index: string, one: string, few: string, many: string) =>
+      [one, few, many][pluralIndex(Number(args[Number(index)]) || 0)],
   )
   args.forEach((a, i) => {
     s = s.replaceAll(`{${i}}`, String(a))

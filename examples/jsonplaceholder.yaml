@@ -36,7 +36,7 @@ steps:
       status: 200
       body:
         - path: $.id
-          equals: "{{authorId}}"
+          equals: '{{authorId}}'
         - path: $.name
           type: string
 
@@ -44,7 +44,7 @@ steps:
     request:
       method: POST
       path: /posts
-      body: { title: "pulse demo", body: "hello", userId: "{{authorId}}" }
+      body: { title: 'pulse demo', body: 'hello', userId: '{{authorId}}' }
     expect:
       status: 201
       body:

@@ -1,6 +1,7 @@
-// Таблица-дерево JSON: тип и значение в фиксированных колонках,
-// иерархию показывает только отступ ключа. Сворачивание — нативный <details>.
+// JSON tree as a table: type and value sit in fixed columns and only the key
+// indent conveys hierarchy. Collapsing uses the native <details> element.
 import { useState } from 'react'
+import { t } from './i18n'
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 
@@ -16,14 +17,14 @@ function Value({ value }: { value: Json }) {
     return (
       <span
         className={`jt-string${long ? ' expandable' : ''}`}
-        title={long && !full ? 'показать целиком' : undefined}
+        title={long && !full ? t('showValue') : undefined}
         onClick={long ? () => setFull(!full) : undefined}
       >
         "{shown}"
       </span>
     )
   }
-  return <span className="jt-literal">{String(value)}</span>
+  return <span className="jt-literal">{value === null ? 'null' : JSON.stringify(value)}</span>
 }
 
 function Node({ name, value, depth }: { name: string; value: Json; depth: number }) {

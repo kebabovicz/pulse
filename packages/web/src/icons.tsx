@@ -1,4 +1,4 @@
-// Линейные иконки (набор lucide), 12–15 px в строках — DESIGN.md.
+// Line icons (lucide set), 12-15 px inside rows — DESIGN.md.
 import type { SVGProps } from 'react'
 
 function Svg({ size = 14, children, ...rest }: SVGProps<SVGSVGElement> & { size?: number }) {

@@ -3,7 +3,7 @@ import { login } from './api'
 import { PulseIcon } from './icons'
 import { t } from './i18n'
 
-// Экран входа — показывается, когда сервер запущен с PULSE_PASSWORD.
+// Login screen, shown when the server runs with PULSE_PASSWORD set.
 export function Login() {
   const [user, setUser] = useState('pulse')
   const [password, setPassword] = useState('')

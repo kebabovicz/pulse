@@ -7,27 +7,29 @@ Reloaded on the fly. Invalid entries don't crash the app — they are listed
 as errors while valid projects keep working.
 
 ```yaml
-settings:                     # optional
-  healthInterval: 30s         # availability check period (default 30s)
-  stepTimeout: 10s            # default step timeout (10s)
-  runTimeout: 5m              # whole-run safety cap (5m): main steps are aborted,
-                              # the run is marked failed with a timeout message,
-                              # cleanup still executes
-  bodyLimit: 256kb            # stored response body cap, longer bodies are truncated
+settings: # optional
+  healthInterval: 30s # availability check period (default 30s)
+  stepTimeout: 10s # default step timeout (10s)
+  runTimeout:
+    5m # whole-run safety cap (5m): main steps are aborted,
+    # the run is marked failed with a timeout message,
+    # cleanup still executes
+  bodyLimit: 256kb # stored response body cap, longer bodies are truncated
 
 projects:
-  - id: myapi                 # stable key, [a-z0-9-]; runs are stored under it —
-                              # do not change after the first run
-    name: my-api              # UI name, defaults to id
-    hosts:                    # named hosts; the active one is switched in the header,
-      local: http://host.docker.internal:8080   # the choice persists in state.json
+  - id:
+      myapi # stable key, [a-z0-9-]; runs are stored under it —
+      # do not change after the first run
+    name: my-api # UI name, defaults to id
+    hosts: # named hosts; the active one is switched in the header,
+      local: http://host.docker.internal:8080 # the choice persists in state.json
       stand: https://stand.example.com
     # baseUrl: http://…       # shorthand for a single host (same as hosts: {local: …})
     # scenariosDir: /path     # optional override; by default scenarios live in
-                              # Pulse's own storage /data/scenarios/<id>
-    healthPath: /health       # optional; without it the active host root is probed
-    stepTimeout: 15s          # optional per-project override
-    runTimeout: 10m           # optional per-project override
+    # Pulse's own storage /data/scenarios/<id>
+    healthPath: /health # optional; without it the active host root is probed
+    stepTimeout: 15s # optional per-project override
+    runTimeout: 10m # optional per-project override
 ```
 
 Hosts can also be added from the UI ("add host…" in the host menu) — those are
@@ -80,12 +82,12 @@ the Raw view shows them unmasked by design.
 services:
   pulse:
     image: pulse
-    ports: ["7100:7100"]
+    ports: ['7100:7100']
     # environment:
     #   PULSE_PASSWORD: change-me   # auth is off without it
     volumes:
       - pulse-data:/data
-    extra_hosts: ["host.docker.internal:host-gateway"]
+    extra_hosts: ['host.docker.internal:host-gateway']
 volumes:
   pulse-data:
 ```

@@ -49,7 +49,7 @@ function Outcome({ run }: { run: RunIndexEntry }) {
   return <span className="warn">{t('notStarted')}</span>
 }
 
-// Вкладка History: все прогоны проекта, сгруппированные по сценариям (req 41, 46).
+// History tab: every run of the project, grouped by scenario (req 41, 46).
 export function HistoryScreen({
   groups,
   filter,
@@ -59,7 +59,7 @@ export function HistoryScreen({
   onClear,
 }: {
   groups: RunsGroup[]
-  filter: string | null // чип «только этот сценарий»
+  filter: string | null // the "this scenario only" chip
   onFilter: (scenario: string | null) => void
   onOpen: (scenario: string, run: number) => void
   onCompare: (scenario: string, a: number, b: number) => void
@@ -67,9 +67,9 @@ export function HistoryScreen({
 }) {
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  // подтверждение вторым кликом: путь сценария либо '*' для всего проекта
+  // second-click confirmation: a scenario path, or '*' for the whole project
   const [confirmClear, setConfirmClear] = useState<string | null>(null)
-  // сравнивать можно только прогоны одного сценария
+  // only runs of the same scenario can be compared
   const [selected, setSelected] = useState<{ scenario: string; runs: number[] }>({ scenario: '', runs: [] })
 
   const visible = groups.filter(
@@ -156,7 +156,12 @@ export function HistoryScreen({
           <tbody key={group.scenario}>
             <tr className="hgroup" onClick={() => toggleGroup(group.scenario)}>
               <td>
-                <span style={{ display: 'inline-flex', transform: collapsed.has(group.scenario) ? 'rotate(-90deg)' : 'none' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    transform: collapsed.has(group.scenario) ? 'rotate(-90deg)' : 'none',
+                  }}
+                >
                   <ChevronDown size={12} />
                 </span>
               </td>
@@ -184,7 +189,11 @@ export function HistoryScreen({
               group.runs.map((run) => {
                 const isSel = selected.scenario === group.scenario && selected.runs.includes(run.run)
                 return (
-                  <tr key={run.run} className={`run-row${isSel ? ' selected' : ''}`} onClick={() => onOpen(group.scenario, run.run)}>
+                  <tr
+                    key={run.run}
+                    className={`run-row${isSel ? ' selected' : ''}`}
+                    onClick={() => onOpen(group.scenario, run.run)}
+                  >
                     <td onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={isSel} onChange={() => toggleRun(group.scenario, run.run)} />
                     </td>
@@ -204,7 +213,11 @@ export function HistoryScreen({
           </tbody>
         ))}
       </table>
-      {totalRuns === 0 && <div className="empty" style={{ height: 200 }}>{t('noRunsYet')}</div>}
+      {totalRuns === 0 && (
+        <div className="empty" style={{ height: 200 }}>
+          {t('noRunsYet')}
+        </div>
+      )}
     </div>
   )
 }

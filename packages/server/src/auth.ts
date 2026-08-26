@@ -6,13 +6,13 @@ const sha256 = (s: string): string => createHash('sha256').update(s).digest('hex
 
 interface SessionsFile {
   passwordHash: string
-  tokens: string[] // sha256 токенов
+  tokens: string[] // sha256 of issued tokens
 }
 
 /**
- * Один аккаунт, как у Postgres: PULSE_USER / PULSE_PASSWORD из окружения.
- * Пароль не задан — авторизация выключена. Сессии живут в /data и переживают
- * перезапуск; смена пароля сбрасывает их все.
+ * A single account, Postgres-style: PULSE_USER / PULSE_PASSWORD from the
+ * environment. Without a password auth is disabled. Sessions live in /data and
+ * survive restarts; changing the password revokes all of them.
  */
 export class Auth {
   readonly enabled: boolean
@@ -31,7 +31,7 @@ export class Auth {
       const stored = JSON.parse(fs.readFileSync(this.file, 'utf8')) as SessionsFile
       if (stored.passwordHash === sha256(this.password)) this.tokens = new Set(stored.tokens)
     } catch {
-      /* нет файла или битый — начинаем с пустого */
+      /* missing or corrupted file: start with no sessions */
     }
     this.persist()
   }

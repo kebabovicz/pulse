@@ -9,8 +9,14 @@ saved. Historical and live runs share the rendering code.
 A single SSE endpoint: `GET /api/events`. Every event is JSON with an envelope:
 
 ```json
-{ "type": "step-finished", "ts": "2026-08-24T12:04:37.412+05:00",
-  "project": "myapi", "scenario": "auth/login.yaml", "run": 129, "...": "payload" }
+{
+  "type": "step-finished",
+  "ts": "2026-08-24T12:04:37.412+05:00",
+  "project": "myapi",
+  "scenario": "auth/login.yaml",
+  "run": 129,
+  "...": "payload"
+}
 ```
 
 `project` is always present; `scenario` and `run` only on run events. On
@@ -35,7 +41,7 @@ reconnect the client refetches current state over REST; events are not replayed.
   - `request` — snapshot after interpolation; `substitutions` list
     `{location, var, fromStep}` powers the "← accessToken from step refresh" links
   - `response` — `{ status, durationMs, sizeBytes, contentType, headers, body,
-    bodyEncoding?, bodyTruncated }`; body is always a string, binary is base64
+bodyEncoding?, bodyTruncated }`; body is always a string, binary is base64
   - `checks` — every check in YAML order with `expected`/`actual` (interpolated)
     and `passed`; all evaluated even after the first failure
   - `captures` — `{ name, from, detail, value }` previews

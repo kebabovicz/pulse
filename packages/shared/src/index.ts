@@ -1,8 +1,8 @@
-// Типы Pulse. Источник истины — SPEC.md и spec/*.md; менять синхронно с ними.
+// Pulse domain types. SPEC.md and spec/*.md are the source of truth; keep them in sync.
 
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 
-// ── Сценарий (SPEC.md) ──────────────────────────────────────────────────────
+// ── Scenario (SPEC.md) ──────────────────────────────────────────────────────
 
 export interface VarDef {
   default?: string | number | boolean
@@ -42,13 +42,11 @@ export type BodyCheck =
 
 export interface ExpectSpec {
   status: number | number[]
-  headers?: Record<string, string | null> // null — заголовка быть не должно
+  headers?: Record<string, string | null> // null means the header must be absent
   body?: BodyCheck[]
 }
 
-export type CaptureSpec =
-  | { from: 'body'; path?: string; regex?: string }
-  | { from: 'header' | 'cookie'; name: string }
+export type CaptureSpec = { from: 'body'; path?: string; regex?: string } | { from: 'header' | 'cookie'; name: string }
 
 export interface CookiesSpec {
   clear?: true
@@ -87,10 +85,10 @@ export interface Scenario {
   description?: string
   vars?: Record<string, VarDef>
   steps: Step[]
-  cleanup?: Step[] // всегда выполняются после основных (кроме ручной остановки)
+  cleanup?: Step[] // always run after the main steps (unless stopped manually)
 }
 
-// ── Списки и состояния (API) ────────────────────────────────────────────────
+// ── Lists and states (API) ──────────────────────────────────────────────────
 
 export interface HealthState {
   status: 'up' | 'down' | 'unknown'
@@ -105,32 +103,32 @@ export interface ScenarioError {
 }
 
 export interface ScenarioSummary {
-  path: string // относительно папки сценариев проекта
+  path: string // relative to the project's scenarios folder
   name: string
   stepCount: number
   valid: boolean
   error?: ScenarioError
   modifiedAt: string
-  hash: string // sha256 содержимого файла; сверка с прогонами даёт «файл менялся»
+  hash: string // sha256 of the file; comparing it with runs reveals "file changed"
 }
 
-/** Строка списка сценариев: сводка файла + итог последнего прогона. */
+/** A scenario list row: file summary plus the outcome of the last run. */
 export interface ScenarioListItem extends ScenarioSummary {
   lastRun?: Pick<RunIndexEntry, 'run' | 'status' | 'durationMs' | 'startedAt' | 'failedStep'>
-  ci: boolean // входит в деплой-набор (прогоняется через /ci/run)
+  ci: boolean // part of the deploy suite (executed by /ci/run)
 }
 
 export interface ProjectView {
   id: string
   name: string
-  hosts: Record<string, string> // имя хоста → base URL (конфиг + добавленные из UI)
-  customHosts: string[] // имена хостов, добавленных из UI (их можно удалить)
+  hosts: Record<string, string> // host name -> base URL (config plus UI-added)
+  customHosts: string[] // names of UI-added hosts (these can be removed)
   activeHost: string
-  baseUrl: string // URL активного хоста
+  baseUrl: string // URL of the active host
   health: HealthState
 }
 
-// ── Прогон (spec/events.md) ─────────────────────────────────────────────────
+// ── Run (spec/events.md) ────────────────────────────────────────────────────
 
 export type VarSource = 'default' | 'manual' | 'remembered'
 
@@ -146,7 +144,7 @@ export type VarUsage = Record<string, { capturedBy: string; usedBy: string[] }>
 export interface StepPlan {
   id: string
   name: string | null
-  cleanup?: boolean // шаг из cleanup-секции
+  cleanup?: boolean // the step comes from the cleanup section
   kind: 'request' | 'sleep'
   method?: HttpMethod
   path?: string
@@ -157,7 +155,7 @@ export interface StepPlan {
 export interface Substitution {
   location: string // "headers.Authorization", "body", "cookies.refreshToken"
   var: string
-  fromStep: string | null // null — значение из vars
+  fromStep: string | null // null means the value came from vars
 }
 
 export interface RequestSnapshot {
@@ -186,7 +184,18 @@ export type CheckResult =
   | {
       kind: 'body-path'
       path: string
-      predicate: 'exists' | 'equals' | 'notEquals' | 'equalsPath' | 'matches' | 'type' | 'gt' | 'lt' | 'length' | 'minLength' | 'maxLength'
+      predicate:
+        | 'exists'
+        | 'equals'
+        | 'notEquals'
+        | 'equalsPath'
+        | 'matches'
+        | 'type'
+        | 'gt'
+        | 'lt'
+        | 'length'
+        | 'minLength'
+        | 'maxLength'
       expected: string
       actual: string | null
       passed: boolean
@@ -221,7 +230,7 @@ export interface StepResult {
   error?: StepError | null
 }
 
-// ── События (spec/events.md) ────────────────────────────────────────────────
+// ── Events (spec/events.md) ─────────────────────────────────────────────────
 
 interface EventBase {
   ts: string
@@ -235,19 +244,47 @@ interface RunEventBase extends EventBase {
 
 export type PulseEvent =
   | (EventBase & { type: 'health-changed'; status: 'up' | 'down'; reason?: string })
-  | (EventBase & { type: 'scenario-changed'; path: string; action: 'added' | 'updated' | 'removed'; summary?: ScenarioSummary })
-  | (RunEventBase & { type: 'run-started'; scenarioName: string; scenarioHash: string; host?: string; vars: RunVar[]; varUsage: VarUsage; steps: StepPlan[] })
+  | (EventBase & {
+      type: 'scenario-changed'
+      path: string
+      action: 'added' | 'updated' | 'removed'
+      summary?: ScenarioSummary
+    })
+  | (RunEventBase & {
+      type: 'run-started'
+      scenarioName: string
+      scenarioHash: string
+      host?: string
+      vars: RunVar[]
+      varUsage: VarUsage
+      steps: StepPlan[]
+    })
   | (RunEventBase & { type: 'step-started'; stepId: string; attempt: number })
   | (RunEventBase & { type: 'step-progress'; stepId: string; remainingMs: number })
-  | (RunEventBase & { type: 'step-retry'; stepId: string; attempt: number; maxAttempts: number; failed: string[]; nextDelayMs: number })
+  | (RunEventBase & {
+      type: 'step-retry'
+      stepId: string
+      attempt: number
+      maxAttempts: number
+      failed: string[]
+      nextDelayMs: number
+    })
   | (RunEventBase & { type: 'step-finished' } & StepResult)
-  | (RunEventBase & { type: 'run-finished'; status: RunStatus; durationMs: number; failedStep?: string; failedCheck?: CheckResult; cleanupFailed?: boolean; message?: string })
+  | (RunEventBase & {
+      type: 'run-finished'
+      status: RunStatus
+      durationMs: number
+      failedStep?: string
+      failedCheck?: CheckResult
+      cleanupFailed?: boolean
+      message?: string
+    })
 
 export type PulseEventDraft = DistributiveOmit<PulseEvent, 'ts'>
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
 
-// ── Хранение (spec/config.md) ───────────────────────────────────────────────
+// ── Storage (spec/config.md) ────────────────────────────────────────────────
 
 export interface RunRecord {
   run: number
@@ -255,15 +292,15 @@ export interface RunRecord {
   scenario: string
   scenarioName: string
   scenarioHash: string
-  host?: string // имя хоста, на котором шёл прогон
-  trigger?: 'ci' // прогон запущен деплой-эндпоинтом, не руками
+  host?: string // name of the host the run went against
+  trigger?: 'ci' // the run was started by the deploy endpoint, not by hand
   startedAt: string
   finishedAt: string
   status: RunStatus
   durationMs: number
   failedStep?: string
   failedCheck?: CheckResult
-  cleanupFailed?: boolean // провал уборки не меняет вердикт, но помечает прогон
+  cleanupFailed?: boolean // a failed cleanup does not change the verdict, it only flags the run
   message?: string
   vars: RunVar[]
   varUsage: VarUsage
@@ -273,7 +310,7 @@ export interface RunRecord {
 export interface RunsGroup {
   scenario: string // относительный путь файла
   name: string
-  runs: RunIndexEntry[] // новые сверху
+  runs: RunIndexEntry[] // newest first
 }
 
 export interface RunIndexEntry {

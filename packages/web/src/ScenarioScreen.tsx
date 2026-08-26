@@ -6,6 +6,7 @@ import { Copy } from './icons'
 import { t } from './i18n'
 import { parseDurationLabel } from './runState'
 import { ScenarioVars } from './ScenarioVars'
+import { colWidth, cols } from './ui/columns'
 
 function CopyRaw({ text }: { text: string }) {
   return (
@@ -15,27 +16,50 @@ function CopyRaw({ text }: { text: string }) {
   )
 }
 
-/** Longest name wins, but the column is capped — longer names wrap onto a second line. */
-const NAME_CAP = 30
+/** Labels of the expect and capture columns, so both keep their width in rows that lack them. */
+const expectLabel = (step: Scenario['steps'][number], checks: string): string =>
+  isRequestStep(step)
+    ? `${Array.isArray(step.expect.status) ? step.expect.status.join('|') : step.expect.status} · ${checks}${
+        step.retry ? ` · x${step.retry.attempts}` : ''
+      }`
+    : ''
+
+const captureLabel = (step: Scenario['steps'][number]): string =>
+  isRequestStep(step) && step.capture ? `-> ${Object.keys(step.capture).join(', ')}` : ''
 
 /**
- * Id and name columns are as wide as their longest value, so the method and the
- * path start right after the names instead of at an arbitrary offset.
+ * Every column is sized from the whole step list, so a step without a name, a
+ * retry or a capture keeps the columns of its neighbours in place.
  */
-function stepCols(steps: Scenario['steps']): CSSProperties {
-  const width = (values: string[], cap: number) =>
-    `${Math.min(values.reduce((max, v) => Math.max(max, v.length), 0) + 2, cap)}ch`
-  return {
-    '--id-col': width(
-      steps.map((s) => s.id),
+function stepCols(steps: Scenario['steps'], checksOf: (step: Scenario['steps'][number]) => string): CSSProperties {
+  return cols({
+    'id-col': colWidth(
+      steps.map((s) => s.id + '  '),
       40,
+      10,
     ),
-    '--name-col': width(
-      steps.map((s) => s.name ?? ''),
-      NAME_CAP,
+    'name-col': colWidth(
+      steps.map((s) => (s.name ? s.name + '  ' : '')),
+      30,
     ),
-  } as CSSProperties
+    'expect-col': colWidth(
+      steps.map((s) => expectLabel(s, checksOf(s)) + '  '),
+      30,
+      12,
+    ),
+    'captures-col': colWidth(
+      steps.map((s) => captureLabel(s) + '  '),
+      34,
+      8,
+    ),
+  })
 }
+
+/** Same text as the row renders, used both for the cell and for its column width. */
+const checksLabel = (step: Scenario['steps'][number]): string =>
+  isRequestStep(step)
+    ? t('checksCount', 1 + Object.keys(step.expect.headers ?? {}).length + (step.expect.body?.length ?? 0))
+    : ''
 
 // Scenario tab: a rendered view of the YAML file and its raw text (read-only).
 export function ScenarioScreen({ project, path }: { project: string; path: string }) {
@@ -91,7 +115,7 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
       ) : (
         <>
           {detail.vars.length > 0 && <ScenarioVars key={path} project={project} path={path} vars={detail.vars} />}
-          <section className="scn-section" style={stepCols(scenario.steps)}>
+          <section className="scn-section" style={stepCols(scenario.steps, checksLabel)}>
             <header>{t('stepsCol')}</header>
             {scenario.steps.map((step, i) => (
               <div key={step.id} className="scn-step">

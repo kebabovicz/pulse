@@ -7,11 +7,28 @@ import { StepDetails } from './run/StepDetails'
 import { StepRow } from './run/StepRow'
 import { Timeline } from './run/Timeline'
 import { fileLabel, fmtTotal, type RunState } from './runState'
+import { colWidth, cols } from './ui/columns'
 
-/** The name column is as wide as the longest step label, so paths line up right after it. */
-function stepNameCol(steps: RunState['steps']): CSSProperties {
-  const longest = steps.reduce((max, s) => Math.max(max, (s.name ?? s.id).length), 0)
-  return { '--step-col': `${Math.min(longest + 2, 46)}ch` } as CSSProperties
+/**
+ * Name and attempts columns are sized from the whole run: a step without retries
+ * keeps the attempts column, so codes and durations never shift between rows.
+ */
+function stepCols(steps: RunState['steps']): CSSProperties {
+  return cols({
+    'step-col': colWidth(
+      steps.map((s) => (s.name ?? s.id) + '  '),
+      46,
+      12,
+    ),
+    'attempts-col': colWidth(
+      steps.map((s) => {
+        const attempts = s.result?.attempts ?? s.attempt ?? 0
+        return attempts > 1 ? `x${attempts}` : ''
+      }),
+      6,
+      2,
+    ),
+  })
 }
 
 const RUN_LABEL: Record<RunState['status'], string> = {
@@ -152,7 +169,7 @@ export function RunScreen({
 
       <Timeline steps={state.steps} onPick={scrollToStep} />
 
-      <div className="steps" style={stepNameCol(state.steps)}>
+      <div className="steps" style={stepCols(state.steps)}>
         {state.steps.map((step, i) => (
           <div
             key={step.id}

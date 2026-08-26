@@ -211,6 +211,7 @@ body {
 .scenario-row {
   display: block;
   flex: 1;
+  min-width: 0; /* lets the name shrink and clip instead of pushing past the sidebar */
   text-align: left;
   padding: 7px 20px;
   border: 0;
@@ -233,6 +234,15 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+/* more specific than the icon rule above, so the name stays a shrinkable text box */
+.scenario-title > .scenario-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .scenario-title > span {
   display: inline-flex;
@@ -1387,11 +1397,11 @@ input[type='checkbox'] {
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }
+/* left-aligned: every row starts its status at the same place */
 .scn-step-expect {
   color: var(--text-muted);
   font-size: 10px;
   white-space: nowrap;
-  text-align: right;
 }
 .scn-step-captures {
   overflow: hidden;

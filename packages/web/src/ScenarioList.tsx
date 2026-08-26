@@ -5,6 +5,7 @@ import { Check, Cross, MoreVertical, Play, Spinner, Upload, Warning } from './ic
 import { dateLocale, t } from './i18n'
 import { fileLabel } from './runState'
 import { ScenarioMenu } from './ScenarioMenu'
+import { useClipped } from './ui/useClipped'
 
 /** Sidebar: scenario search, import and the grouped scenario list. */
 export function ScenarioList({
@@ -91,9 +92,9 @@ export function ScenarioList({
                 !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
               }`}
             >
-              <button className="scenario-row" title={item.name} onClick={() => onOpen(item.path)}>
+              <button className="scenario-row" onClick={() => onOpen(item.path)}>
                 <span className="scenario-title">
-                  {fileLabel(item.path)}
+                  <ScenarioName label={fileLabel(item.path)} />
                   <ScenarioStatus item={item} running={item.path === runningPath} />
                 </span>
                 <ScenarioMeta item={item} />
@@ -120,6 +121,16 @@ export function ScenarioList({
         </div>
       ))}
     </nav>
+  )
+}
+
+/** The name carries a tooltip only when the column cuts it off. */
+function ScenarioName({ label }: { label: string }) {
+  const [ref, clipped] = useClipped<HTMLSpanElement>(label)
+  return (
+    <span ref={ref} className="scenario-name" title={clipped ? label : undefined}>
+      {label}
+    </span>
   )
 }
 

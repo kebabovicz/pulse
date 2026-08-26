@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { t } from '../i18n'
+import { useClipped } from './useClipped'
 
 /**
  * A value that does not fit its column: clipped to one line, and expanded to as
@@ -8,20 +9,8 @@ import { t } from '../i18n'
  * still be picked with the mouse and copied.
  */
 export function ClipValue({ text, className = '' }: { text: string; className?: string }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [clipped, setClipped] = useState(false)
   const [open, setOpen] = useState(false)
-
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el || open) return
-    const measure = () => setClipped(el.scrollWidth > el.clientWidth + 1)
-    measure()
-    // the column width follows the window and the zoom level, so re-measure on resize
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [text, open])
+  const [ref, clipped] = useClipped<HTMLSpanElement>(text, !open)
 
   const interactive = clipped || open
   return (

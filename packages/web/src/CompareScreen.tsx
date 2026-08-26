@@ -48,8 +48,9 @@ export function CompareScreen({
 
   const fmtDelta = (delta: number) => `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${fmtMs(Math.abs(delta))}`
 
-  const runChip = (r: RunRecord) => (
+  const runChip = (r: RunRecord, side: 'a' | 'b') => (
     <button className={`run-chip ${r.status}`} onClick={() => onOpen(r.run)}>
+      <span className={`run-key ${side}`} />
       <b>#{r.run}</b> {r.status === 'passed' ? t('passed') : r.status === 'failed' ? t('failed') : r.status} ·{' '}
       {fmtTotal(r.durationMs)}{' '}
       <span className="muted">
@@ -71,9 +72,9 @@ export function CompareScreen({
         </div>
       </div>
       <div className="compare-chips">
-        {runChip(a)}
+        {runChip(a, 'a')}
         <span className="muted">⇄</span>
-        {runChip(b)}
+        {runChip(b, 'b')}
         <span className="compare-summary muted">
           {diverged > 0 ? t('diverged', diverged, rows.length) : t('statusesMatch')} · {t('totalTime')}{' '}
           <span className={totalDelta > 500 ? 'warn' : 'muted'}>{fmtDelta(totalDelta)}</span>
@@ -83,8 +84,12 @@ export function CompareScreen({
         <thead>
           <tr>
             <th>{t('stepWord')}</th>
-            <th>#{a.run}</th>
-            <th>#{b.run}</th>
+            <th>
+              <span className="run-key a" />#{a.run}
+            </th>
+            <th>
+              <span className="run-key b" />#{b.run}
+            </th>
             <th>Δ</th>
             <th>{t('durationCol')}</th>
           </tr>
@@ -109,9 +114,9 @@ export function CompareScreen({
                   {delta == null ? '—' : fmtDelta(delta)}
                 </td>
                 <td className="dur-bars">
-                  <div className="dur-bar" style={{ width: `${((row.a?.durationMs ?? 0) / maxMs) * 100}%` }} />
+                  <div className="dur-bar a" style={{ width: `${((row.a?.durationMs ?? 0) / maxMs) * 100}%` }} />
                   <div
-                    className={`dur-bar${delta != null && delta > 500 ? ' slow' : ''}`}
+                    className={`dur-bar b${delta != null && delta > 500 ? ' slow' : ''}`}
                     style={{ width: `${((row.b?.durationMs ?? 0) / maxMs) * 100}%` }}
                   />
                 </td>

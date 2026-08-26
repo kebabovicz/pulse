@@ -33,6 +33,19 @@
   box-sizing: border-box;
 }
 
+/* Focus in the app's own style instead of the bright system ring.
+   Text inputs get an accent border, everything else a thin keyboard-only ring. */
+:focus-visible {
+  outline: 1px solid var(--border-strong);
+  outline-offset: 1px;
+}
+
+input:focus,
+input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
 body {
   margin: 0;
   background: var(--bg-app);

@@ -192,7 +192,22 @@ body {
 .scenario-item.selected {
   background: var(--bg-elev);
 }
+/* a rule on the edge carries the alarm: the row itself stays a list row */
+.scenario-item.failed::before,
+.scenario-item.invalid::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+}
+.scenario-item.failed::before {
+  background: var(--fail);
+}
+.scenario-item.invalid::before {
+  background: var(--warn);
+}
 
+/* a calm scenario is quiet; the ones that need attention come forward */
 .scenario-row {
   display: block;
   flex: 1;
@@ -200,9 +215,15 @@ body {
   padding: 7px 20px;
   border: 0;
   background: none;
-  color: var(--text-primary);
-  font: 600 12px var(--font-ui);
+  color: var(--text-secondary);
+  font: 400 12px var(--font-ui);
   cursor: pointer;
+}
+.scenario-item.selected .scenario-row,
+.scenario-item.failed .scenario-row,
+.scenario-item.invalid .scenario-row {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 .scenario-row:hover {
   background: var(--bg-elev);

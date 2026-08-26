@@ -38,6 +38,13 @@ export const Minus = (p: { size?: number }) => (
   </Svg>
 )
 
+export const Warning = (p: { size?: number }) => (
+  <Svg {...p}>
+    <path d="M12 4 2.5 20h19L12 4Z" />
+    <path d="M12 10v4M12 17.5v.5" />
+  </Svg>
+)
+
 export const Pause = (p: { size?: number }) => (
   <Svg {...p}>
     <path d="M9 5v14M15 5v14" />

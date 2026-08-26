@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import type { ScenarioListItem } from '@pulse/shared'
 import { importScenario } from './api'
-import { Check, Cross, MoreVertical, Play, Spinner, Upload } from './icons'
+import { Check, Cross, MoreVertical, Play, Spinner, Upload, Warning } from './icons'
 import { dateLocale, t } from './i18n'
 import { fileLabel } from './runState'
 import { ScenarioMenu } from './ScenarioMenu'
@@ -85,7 +85,12 @@ export function ScenarioList({
         <div key={dir}>
           {dir && <div className="group">{dir}</div>}
           {items.map((item) => (
-            <div key={item.path} className={`scenario-item${item.path === selectedPath ? ' selected' : ''}`}>
+            <div
+              key={item.path}
+              className={`scenario-item${item.path === selectedPath ? ' selected' : ''}${
+                !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
+              }`}
+            >
               <button className="scenario-row" title={item.name} onClick={() => onOpen(item.path)}>
                 <span className="scenario-title">
                   {fileLabel(item.path)}
@@ -125,7 +130,13 @@ function ScenarioStatus({ item, running }: { item: ScenarioListItem; running: bo
         <Spinner size={12} />
       </span>
     )
-  if (!item.valid || !item.lastRun) return null
+  if (!item.valid)
+    return (
+      <span className="warn">
+        <Warning size={12} />
+      </span>
+    )
+  if (!item.lastRun) return null
   if (item.lastRun.status === 'passed')
     return (
       <span className="ok">

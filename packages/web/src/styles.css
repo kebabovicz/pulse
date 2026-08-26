@@ -1814,9 +1814,11 @@ input[type='search']::-webkit-search-cancel-button {
 }
 .stats-row.head {
   color: var(--text-secondary);
-  font-size: 10px;
   cursor: default;
   background: var(--bg-app);
+}
+.stats-row.head > * {
+  font-size: 10px;
 }
 .stats-row:not(.head):nth-of-type(even) {
   background: var(--row-alt);
@@ -1934,6 +1936,8 @@ input[type='search']::-webkit-search-cancel-button {
 }
 .stats-step.head {
   color: var(--text-secondary);
+}
+.stats-step.head > * {
   font-size: 10px;
 }
 .stats-step-id {
@@ -1963,6 +1967,8 @@ input[type='search']::-webkit-search-cancel-button {
 }
 .stats-flaky.head {
   color: var(--text-secondary);
+}
+.stats-flaky.head > * {
   font-size: 10px;
 }
 .stats-flaky:not(.head):nth-of-type(even) {

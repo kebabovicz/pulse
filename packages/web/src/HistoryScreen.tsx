@@ -191,7 +191,7 @@ export function HistoryScreen({
                 return (
                   <tr
                     key={run.run}
-                    className={`run-row${isSel ? ' selected' : ''}`}
+                    className={`run-row${isSel ? ' selected' : ''}${run.status === 'failed' ? ' failed' : ''}`}
                     onClick={() => onOpen(group.scenario, run.run)}
                   >
                     <td onClick={(e) => e.stopPropagation()}>

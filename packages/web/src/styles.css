@@ -1002,6 +1002,13 @@ input[type='checkbox']:checked::after {
 .history tbody tr.run-row.selected {
   background: var(--tint-accent);
 }
+/* a failed run is marked the same way as in the sidebar: tint plus a rule on the edge */
+.history tbody tr.run-row.failed {
+  background: var(--tint-fail);
+}
+.history tbody tr.run-row.failed td:first-child {
+  box-shadow: inset 3px 0 0 var(--fail);
+}
 .history tr.diverged {
   background: var(--tint-fail);
 }

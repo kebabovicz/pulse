@@ -1838,8 +1838,18 @@ input[type='search']::-webkit-search-cancel-button {
 }
 .stats-chevron {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  line-height: 0;
   color: var(--text-muted);
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
   transition: transform 0.12s ease;
+}
+.stats-chevron.open {
+  transform: rotate(0deg);
 }
 .stats-abs {
   font-size: 10px;

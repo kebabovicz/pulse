@@ -116,14 +116,16 @@ function ScenarioRow({
 }) {
   const failing = stats.passRate !== null && stats.passRate < 1
   const calm = stats.passRate === 1 && stats.deltaPct === null
+  const expandable = stats.steps.length > 0
   return (
     <>
       <div
         className={`stats-row${failing ? ' failing' : ''}${calm ? ' calm' : ''}${open ? ' open' : ''}`}
-        onClick={onToggle}
+        style={expandable ? undefined : { cursor: 'default' }}
+        onClick={expandable ? onToggle : undefined}
       >
-        <span className="stats-chevron" style={{ transform: open ? 'none' : 'rotate(-90deg)' }}>
-          <ChevronDown size={12} />
+        <span className={`stats-chevron${open ? ' open' : ''}`}>
+          {expandable && <ChevronDown size={12} />}
         </span>
         <span className="stats-name">{stats.name}</span>
         <span className={`mono${stats.counted < stats.total ? ' warn' : ' muted'}`}>
@@ -155,7 +157,7 @@ function ScenarioRow({
           )}
         </span>
       </div>
-      {open && stats.steps.length > 0 && <StepRows steps={stats.steps} />}
+      {open && expandable && <StepRows steps={stats.steps} />}
     </>
   )
 }
@@ -241,8 +243,7 @@ export function StatsScreen({
     <div className="run-screen stats">
       <div className="stats-toolbar">
         <span className="stats-summary">
-          {t('lastRuns', stats.window)} · {t('scenariosCount', stats.scenarios.length)}
-          {stats.from && stats.to && ` · ${shortDate(stats.from)} — ${shortDate(stats.to)}`}
+          {stats.from && stats.to ? `${shortDate(stats.from)} — ${shortDate(stats.to)}` : ''}
         </span>
         <span className="muted stats-filter-label">{t('windowLabel')}</span>
         <span className="seg">

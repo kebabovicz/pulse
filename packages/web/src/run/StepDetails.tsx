@@ -1,6 +1,7 @@
-import { Check, Cross } from '../icons'
+import { useState } from 'react'
+import { Check, ChevronsDownUp, ChevronsUpDown, Cross } from '../icons'
 import { t } from '../i18n'
-import { JsonTree } from '../JsonTree'
+import { JsonTree, treeSize } from '../JsonTree'
 import type { RunState, StepView } from '../runState'
 import { CopyButton } from '../ui/CopyButton'
 import { ClipValue } from '../ui/ClipValue'
@@ -31,6 +32,9 @@ function isStructuredJson(text: string): boolean {
     return false
   }
 }
+
+/** Above this many rows a body is worth a collapse switch of its own. */
+const BIG_TREE = 20
 
 /** Keys of a JSON object body, empty when the body is not one. */
 function bodyKeys(body: string | null): string[] {
@@ -67,7 +71,18 @@ function RequestBodyRows({ body }: { body: string }) {
 }
 
 /** Expanded step: checks, request, response and captured variables. */
-export function StepDetails({ step, state, projectId }: { step: StepView; state: RunState; projectId: string }) {
+export function StepDetails({
+  step,
+  state,
+  projectId,
+  expandAll = false,
+}: {
+  step: StepView
+  state: RunState
+  projectId: string
+  /** follows the run-wide "expand all steps" switch */
+  expandAll?: boolean
+}) {
   const r = step.result!
   const checks = r.checks ?? []
   const sorted = [...checks].sort((a, b) => Number(a.passed) - Number(b.passed))
@@ -91,6 +106,14 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
       ].join('\n')
     : ''
   const statusOk = !checks.some((c) => c.kind === 'status' && !c.passed)
+  // a body with many branches opens collapsed: the reader unfolds what they need
+  const [treeOpen, setTreeOpen] = useState(expandAll)
+  const [lastSwitch, setLastSwitch] = useState(expandAll)
+  if (lastSwitch !== expandAll) {
+    setLastSwitch(expandAll)
+    setTreeOpen(expandAll)
+  }
+  const bigBody = effRespMode === 'tree' && treeSize(r.response?.body ?? '') > BIG_TREE
 
   return (
     <div className="step-details">
@@ -193,6 +216,15 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
               <span className="mono">{r.response.sizeBytes} B</span>
               {r.response.bodyTruncated && <span className="muted">{t('truncated')}</span>}
             </span>
+            {bigBody && (
+              <button
+                className="icon-btn"
+                title={treeOpen ? t('collapseAll') : t('expandAll')}
+                onClick={() => setTreeOpen(!treeOpen)}
+              >
+                {treeOpen ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
+              </button>
+            )}
             {r.response.body !== '' && <Seg modes={respModes} mode={effRespMode} onPick={setRespMode} />}
             <CopyButton
               text={
@@ -215,7 +247,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
             </div>
           ) : null}
           {r.response.body === '' ? null : effRespMode === 'tree' ? (
-            <JsonTree text={r.response.body} />
+            <JsonTree text={r.response.body} expandAll={treeOpen} />
           ) : effRespMode === 'json' ? (
             <pre className="body-text">{prettyJson(r.response.body)}</pre>
           ) : effRespMode === 'raw' ? (

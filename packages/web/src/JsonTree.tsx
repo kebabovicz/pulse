@@ -25,9 +25,16 @@ const entriesOf = (v: Json): (readonly [string, Json])[] =>
 
 /**
  * Walks the tree in display order, descending only into open branches.
- * Branches below the second level start collapsed; `toggled` inverts that default.
+ * Branches are collapsed unless `expandAll` is on; `toggled` inverts that default
+ * for a branch the reader opened or closed by hand.
  */
-function flatten(entries: (readonly [string, Json])[], toggled: Set<string>, parent: string, depth: number): Row[] {
+function flatten(
+  entries: (readonly [string, Json])[],
+  toggled: Set<string>,
+  expandAll: boolean,
+  parent: string,
+  depth: number,
+): Row[] {
   const rows: Row[] = []
   for (const [name, value] of entries) {
     const path = `${parent}/${name}`
@@ -37,9 +44,9 @@ function flatten(entries: (readonly [string, Json])[], toggled: Set<string>, par
       continue
     }
     const children = entriesOf(value)
-    const open = toggled.has(path) ? depth >= 2 : depth < 2
+    const open = toggled.has(path) ? !expandAll : expandAll
     rows.push({ path, name, value, depth, branch, count: children.length, open })
-    if (open) rows.push(...flatten(children, toggled, path, depth + 1))
+    if (open) rows.push(...flatten(children, toggled, expandAll, path, depth + 1))
   }
   return rows
 }
@@ -62,8 +69,27 @@ function Value({ value }: { value: Json }) {
   return <span className="jt-literal">{value === null ? 'null' : JSON.stringify(value)}</span>
 }
 
-export function JsonTree({ text }: { text: string }) {
+/** How many rows the body would take fully expanded — the "is it big" test. */
+export function treeSize(text: string): number {
+  const count = (value: Json): number =>
+    value !== null && typeof value === 'object'
+      ? entriesOf(value).reduce((sum, [, child]) => sum + 1 + count(child), 0)
+      : 0
+  try {
+    return count(JSON.parse(text) as Json)
+  } catch {
+    return 0
+  }
+}
+
+export function JsonTree({ text, expandAll = false }: { text: string; expandAll?: boolean }) {
   const [toggled, setToggled] = useState<Set<string>>(new Set())
+  // the outer switch resets hand-made choices: it means "show everything" / "hide everything"
+  const [lastMode, setLastMode] = useState(expandAll)
+  if (lastMode !== expandAll) {
+    setLastMode(expandAll)
+    setToggled(new Set())
+  }
   let json: Json
   try {
     json = JSON.parse(text) as Json
@@ -80,7 +106,7 @@ export function JsonTree({ text }: { text: string }) {
       return next
     })
 
-  const rows = flatten(entriesOf(json), toggled, '', 0)
+  const rows = flatten(entriesOf(json), toggled, expandAll, '', 0)
   // the value column starts right after the longest visible key, indent included
   const longest = rows.reduce((max, row) => Math.max(max, row.name.length + row.depth * 2), 0)
 

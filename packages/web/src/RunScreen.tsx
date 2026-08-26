@@ -54,6 +54,8 @@ export function RunScreen({
   const running = state.status === 'running'
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [varsOpen, setVarsOpen] = useState(false)
+  // "expand all steps" opens the response bodies too, down to their branches
+  const [treesOpen, setTreesOpen] = useState(false)
   const stepRefs = useRef(new Map<string, HTMLDivElement>())
 
   const toggleStep = (stepId: string) =>
@@ -111,7 +113,10 @@ export function RunScreen({
           <button
             className="btn"
             title={allOpen ? t('collapseAll') : t('expandAll')}
-            onClick={() => setOpen(allOpen ? new Set() : new Set(withDetails))}
+            onClick={() => {
+              setOpen(allOpen ? new Set() : new Set(withDetails))
+              setTreesOpen(!allOpen)
+            }}
           >
             <span key={String(allOpen)} className="flip-icon">
               {allOpen ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
@@ -185,7 +190,9 @@ export function RunScreen({
           >
             {step.cleanup && !state.steps[i - 1]?.cleanup && <div className="cleanup-divider">{t('cleanupLabel')}</div>}
             <StepRow step={step} index={i} open={open.has(step.id)} onToggle={() => toggleStep(step.id)} />
-            {open.has(step.id) && hasDetails(step) && <StepDetails step={step} state={state} projectId={projectId} />}
+            {open.has(step.id) && hasDetails(step) && (
+              <StepDetails step={step} state={state} projectId={projectId} expandAll={treesOpen} />
+            )}
           </div>
         ))}
       </div>

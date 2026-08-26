@@ -11,6 +11,22 @@ interface Row {
   b?: RunRecord['steps'][number]
 }
 
+// A duration difference counts only when it is both relatively and absolutely
+// visible: network jitter makes a few ms on a fast step look like tens of
+// percent, while 20 ms on a two-second step is noise.
+const MIN_SHARE = 0.1
+const MIN_MS = 20
+
+type Trend = 'faster' | 'slower' | 'same'
+
+function trendOf(delta: number | null, base: number | undefined): Trend {
+  if (delta === null || base === undefined || base === 0) return 'same'
+  if (Math.abs(delta) < MIN_MS || Math.abs(delta) / base < MIN_SHARE) return 'same'
+  return delta < 0 ? 'faster' : 'slower'
+}
+
+const TREND_CLASS: Record<Trend, string> = { faster: 'ok', slower: 'warn', same: '' }
+
 // Steps are matched by id; ones missing from either run are marked (req 48).
 function pairSteps(a: RunRecord, b: RunRecord): Row[] {
   const ids = [...new Set([...a.steps.map((s) => s.id), ...b.steps.map((s) => s.id)])]
@@ -77,7 +93,7 @@ export function CompareScreen({
         {runChip(b, 'b')}
         <span className="compare-summary muted">
           {diverged > 0 ? t('diverged', diverged, rows.length) : t('statusesMatch')} · {t('totalTime')}{' '}
-          <span className={totalDelta > 500 ? 'warn' : 'muted'}>{fmtDelta(totalDelta)}</span>
+          <span className={TREND_CLASS[trendOf(totalDelta, a.durationMs)] || 'muted'}>{fmtDelta(totalDelta)}</span>
         </span>
       </div>
       <table className="history compare">
@@ -110,13 +126,13 @@ export function CompareScreen({
                 <td>
                   <Cell step={row.b} />
                 </td>
-                <td className={`mono${delta != null && delta > 500 ? ' warn' : ''}`}>
+                <td className={`mono ${TREND_CLASS[trendOf(delta, row.a?.durationMs)]}`}>
                   {delta == null ? '—' : fmtDelta(delta)}
                 </td>
                 <td className="dur-bars">
                   <div className="dur-bar a" style={{ width: `${((row.a?.durationMs ?? 0) / maxMs) * 100}%` }} />
                   <div
-                    className={`dur-bar b${delta != null && delta > 500 ? ' slow' : ''}`}
+                    className={`dur-bar b${trendOf(delta, row.a?.durationMs) === 'slower' ? ' slow' : ''}`}
                     style={{ width: `${((row.b?.durationMs ?? 0) / maxMs) * 100}%` }}
                   />
                 </td>

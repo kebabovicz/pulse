@@ -1,4 +1,5 @@
 import type {
+  ProjectStats,
   ProjectView,
   RunIndexEntry,
   RunRecord,
@@ -67,6 +68,9 @@ export const clearRuns = (project: string, scenario?: string) =>
   post<{ cleared: string }>(`/api/projects/${project}/runs/clear`, scenario ? { scenario } : {})
 
 export const fetchAllRuns = (project: string) => request<{ groups: RunsGroup[] }>(`/api/projects/${project}/all-runs`)
+
+export const fetchStats = (project: string, window: number, host: string | null) =>
+  request<ProjectStats>(`/api/projects/${project}/stats?window=${window}&host=${host ?? 'all'}`)
 
 export const fetchRuns = (project: string, path: string) =>
   request<{ runs: RunIndexEntry[] }>(`/api/projects/${project}/runs?scenario=${encodeURIComponent(path)}`)

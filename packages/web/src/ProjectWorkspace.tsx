@@ -21,8 +21,9 @@ import { RunScreen } from './RunScreen'
 import { fromRecord, pendingRun, reduce, type RunState } from './runState'
 import { ScenarioList } from './ScenarioList'
 import { ScenarioScreen } from './ScenarioScreen'
+import { StatsScreen } from './StatsScreen'
 
-type Tab = 'run' | 'history' | 'compare' | 'scenario'
+type Tab = 'run' | 'history' | 'compare' | 'scenario' | 'stats'
 
 const lastScenarioKey = (projectId: string) => `pulse.scenario.${projectId}`
 
@@ -180,10 +181,13 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
             onClick={() => setTab('scenario')}
             label={t('tabScenario')}
           />
+          <TabButton active={tab === 'stats'} onClick={() => setTab('stats')} label={t('tabStats')} />
         </div>
         {/* the key restarts the fade on every tab switch, but not while a tab updates in place */}
         <div className="tab-panel" key={tab}>
-          {tab === 'scenario' && selectedPath ? (
+          {tab === 'stats' ? (
+            <StatsScreen project={project.id} onOpenRun={(scenario, run) => void openRun(scenario, run)} />
+          ) : tab === 'scenario' && selectedPath ? (
             <ScenarioScreen project={project.id} path={selectedPath} />
           ) : tab === 'compare' && compare ? (
             <CompareScreen

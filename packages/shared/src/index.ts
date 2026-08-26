@@ -307,6 +307,69 @@ export interface RunRecord {
   steps: (StepPlan & StepResult)[]
 }
 
+// ── Project statistics (Statistics tab) ────────────────────────────────────
+
+/** One run in the pass/fail chain drawn next to a scenario. */
+export interface ChainRun {
+  run: number
+  status: RunStatus
+  /** false for runs older than the last change of the scenario file: shown, not counted */
+  counted: boolean
+}
+
+export interface StepStats {
+  stepId: string
+  method?: string
+  path?: string
+  medianMs: number | null
+  /** median of the newer half against the older half of the window */
+  deltaMs: number | null
+  deltaPct: number | null
+  failures: number
+  retried: number
+  counted: number
+}
+
+export interface ScenarioStats {
+  scenario: string
+  name: string
+  /** runs that count towards the numbers, and how many were in the window at all */
+  counted: number
+  total: number
+  chain: ChainRun[]
+  passRate: number | null
+  medianMs: number | null
+  deltaMs: number | null
+  deltaPct: number | null
+  lastFailure?: { run: number; startedAt: string; counted: boolean }
+  steps: StepStats[]
+}
+
+/** A step that passes only on a retry inside a scenario that looks healthy. */
+export interface FlakyStep {
+  scenario: string
+  stepId: string
+  method?: string
+  path?: string
+  rate: number
+  retried: number
+  counted: number
+  lastRun: { run: number; startedAt: string }
+}
+
+export interface ProjectStats {
+  window: number
+  host: string | null
+  hosts: string[]
+  scenarios: ScenarioStats[]
+  flaky: FlakyStep[]
+  runs: number
+  from?: string
+  to?: string
+  /** below this many counted runs the numbers are not shown at all */
+  minRuns: number
+}
+
 export interface RunsGroup {
   scenario: string // relative file path
   name: string

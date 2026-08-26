@@ -9,6 +9,7 @@ import type { Runner } from './runner.js'
 import type { StateStore } from './state.js'
 import { updateVarDefaults } from './scenarioEditor.js'
 import { validateScenario, type ScenarioStore } from './scenarios.js'
+import { projectStats } from './stats.js'
 import { RunStore } from './storage.js'
 
 export interface AppContext {
@@ -302,6 +303,25 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       .sort((a, b) => (b.runs[0]?.startedAt ?? '').localeCompare(a.runs[0]?.startedAt ?? ''))
     return { groups }
   })
+
+  // project statistics over the last N runs (Statistics tab)
+  app.get<{ Params: { id: string }; Querystring: { window?: string; host?: string } }>(
+    '/api/projects/:id/stats',
+    (req, reply) => {
+      const project = findProject(req.params.id)
+      if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+      const list = ctx.scenarios.list(project.id) ?? []
+      const window = Math.min(Math.max(Number(req.query.window) || 50, 1), 500)
+      const host = req.query.host && req.query.host !== 'all' ? req.query.host : null
+      return projectStats(
+        ctx.runs,
+        project.id,
+        list.map((s) => ({ path: s.path, name: s.name })),
+        window,
+        host,
+      )
+    },
+  )
 
   // the "run on deploy" flag (kept in state.json)
   app.post<{ Params: { id: string }; Body: { path: string; enabled: boolean } }>(

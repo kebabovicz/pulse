@@ -1760,3 +1760,175 @@ input[type='search']::-webkit-search-cancel-button {
 .var-generators-hint {
   margin-left: 4px;
 }
+
+
+/* ── statistics tab ── */
+.stats-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.stats-summary {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.stats-filter-label {
+  font-size: 10px;
+}
+.stats-toolbar .seg {
+  margin-left: 0;
+}
+.stats-toolbar .stats-filter-label:first-of-type {
+  margin-left: auto;
+}
+
+.stats-headline {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+.stats-table .stats-row,
+.stats-row.head {
+  display: grid;
+  grid-template-columns:
+    18px var(--stats-name-col, 26ch) 10ch minmax(120px, 1fr) 10ch 9ch 16ch
+    18ch;
+  gap: 12px;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 20px;
+  font-size: 11px;
+}
+.stats-row {
+  cursor: pointer;
+  position: relative;
+}
+.stats-row.head {
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: default;
+  background: var(--bg-app);
+}
+.stats-row:not(.head):nth-of-type(even) {
+  background: var(--row-alt);
+}
+.stats-row:not(.head):hover {
+  background: var(--bg-elev);
+}
+/* a failing scenario carries the same edge rule as everywhere else */
+.stats-row.failing::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--fail);
+}
+/* nothing to act on: the row steps back so deviations stand out */
+.stats-row.calm .stats-name,
+.stats-row.calm .mono {
+  color: var(--text-muted);
+}
+.stats-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats-chevron {
+  display: inline-flex;
+  color: var(--text-muted);
+  transition: transform 0.12s ease;
+}
+.stats-abs {
+  font-size: 10px;
+}
+.stats-last {
+  text-align: right;
+}
+.stats-sort {
+  margin-left: 10px;
+  font-size: 10px;
+}
+.stats-footnote {
+  padding: 6px 20px 8px;
+  font-size: 10px;
+}
+
+.chain {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.chain-run {
+  width: 6px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--ok);
+}
+.chain-run.failed {
+  background: var(--fail);
+}
+.chain-run.stopped,
+.chain-run.error {
+  background: var(--skip);
+}
+/* runs older than the last file change: shown, but not counted */
+.chain-run.outside {
+  background: var(--border-strong);
+}
+.chain-run.boundary {
+  margin-left: 5px;
+  box-shadow: -3px 0 0 -1px var(--text-muted);
+}
+
+.stats-nested {
+  background: var(--bg-app);
+  padding: 2px 0 6px;
+}
+.stats-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9ch 16ch 12ch 14ch;
+  gap: 12px;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 20px 3px 50px;
+  font-size: 11px;
+}
+.stats-step.head {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.stats-step-id {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats-req {
+  font-weight: 400;
+  font-size: 10px;
+}
+.stats-rest {
+  display: block;
+  padding: 2px 20px 2px 50px;
+  font-size: 11px;
+}
+
+.stats-flaky {
+  display: grid;
+  grid-template-columns: var(--stats-name-col, 26ch) minmax(0, 1fr) 16ch 18ch;
+  gap: 12px;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 20px;
+  font-size: 11px;
+}
+.stats-flaky.head {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.stats-flaky:not(.head):nth-of-type(even) {
+  background: var(--row-alt);
+}

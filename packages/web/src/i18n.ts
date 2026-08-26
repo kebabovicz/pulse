@@ -163,6 +163,12 @@ const en = {
   pausesFootnote: 'pauses are left out of the breakdown — their time is part of the scenario median',
   noStatsYet: 'No statistics yet',
   noStatsHint: 'numbers appear after {0} runs — earlier a median and a failure rate mean nothing',
+  slowestSteps: 'Slowest endpoints',
+  unstableSteps: 'Time swings',
+  spreadCol: 'spread',
+  notRunLately: 'Not run lately',
+  sinceCol: 'idle',
+  daysAgo: '{0} {0|day|days|days}',
 }
 
 const ru: Record<keyof typeof en, string> = {
@@ -324,6 +330,12 @@ const ru: Record<keyof typeof en, string> = {
   pausesFootnote: 'шаги-паузы в разбивку не входят — их длительность учтена в медиане сценария',
   noStatsYet: 'Статистики ещё нет',
   noStatsHint: 'числа появятся после {0} прогонов — раньше медиана и частота провалов ничего не значат',
+  slowestSteps: 'Самые медленные эндпоинты',
+  unstableSteps: 'Время скачет',
+  spreadCol: 'разброс',
+  notRunLately: 'Давно не запускались',
+  sinceCol: 'простой',
+  daysAgo: '{0} {0|день|дня|дней}',
 }
 
 export type Lang = 'ru' | 'en'

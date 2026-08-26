@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import type { ChainRun, FlakyStep, ProjectStats, ScenarioStats, StepStats } from '@pulse/shared'
+import type {
+  ChainRun,
+  FlakyStep,
+  ProjectStats,
+  ScenarioStats,
+  SlowStep,
+  StaleScenario,
+  StepStats,
+} from '@pulse/shared'
 import { fetchStats } from './api'
 import { ChevronDown } from './icons'
 import { t } from './i18n'
@@ -73,15 +81,7 @@ function StepRows({ steps }: { steps: StepStats[] }) {
       </div>
       {shown.map((step) => (
         <div key={step.stepId} className="stats-step">
-          <span className="stats-step-id">
-            {step.stepId}
-            {step.path && (
-              <span className="muted stats-req">
-                {' '}
-                {step.method} {step.path}
-              </span>
-            )}
-          </span>
+          <StepCell step={step} />
           <span className={`mono${step.failures > 0 ? ' bad' : ' muted'}`}>
             {step.failures > 0 ? `${step.failures} / ${step.counted}` : dash}
           </span>
@@ -124,9 +124,7 @@ function ScenarioRow({
         style={expandable ? undefined : { cursor: 'default' }}
         onClick={expandable ? onToggle : undefined}
       >
-        <span className={`stats-chevron${open ? ' open' : ''}`}>
-          {expandable && <ChevronDown size={12} />}
-        </span>
+        <span className={`stats-chevron${open ? ' open' : ''}`}>{expandable && <ChevronDown size={12} />}</span>
         <span className="stats-name">{stats.name}</span>
         <span className={`mono${stats.counted < stats.total ? ' warn' : ' muted'}`}>
           {stats.counted} / {stats.total}
@@ -175,15 +173,7 @@ function FlakyTable({ rows, onOpenRun }: { rows: FlakyStep[]; onOpenRun: (scenar
       {rows.map((row) => (
         <div key={`${row.scenario}/${row.stepId}`} className="stats-flaky">
           <span className="muted">{row.scenario.replace(/\.ya?ml$/, '')}</span>
-          <span className="stats-step-id">
-            {row.stepId}
-            {row.path && (
-              <span className="muted stats-req">
-                {' '}
-                {row.method} {row.path}
-              </span>
-            )}
-          </span>
+          <StepCell step={row} />
           <span className="mono">
             <span className="warn">{pct(row.rate)}</span>
             <span className="muted stats-abs">
@@ -194,6 +184,79 @@ function FlakyTable({ rows, onOpenRun }: { rows: FlakyStep[]; onOpenRun: (scenar
           <span className="mono">
             <button className="link" onClick={() => onOpenRun(row.scenario, row.lastRun.run)}>
               #{row.lastRun.run} · {relativeWhen(row.lastRun.startedAt)}
+            </button>
+          </span>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+/** Step id with its method and path, used by every supporting table. */
+function StepCell({ step }: { step: { stepId: string; method?: string; path?: string } }) {
+  return (
+    <span className="stats-step-id">
+      {step.stepId}
+      {step.path && (
+        <span className="muted stats-req">
+          {' '}
+          {step.method} {step.path}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** Where the time goes and where it swings — the questions a green project asks. */
+function StepsTable({ title, rows, metric }: { title: string; rows: SlowStep[]; metric: 'median' | 'spread' }) {
+  return (
+    <section className="scn-section">
+      <header>{title}</header>
+      <div className="stats-flaky head">
+        <span>{t('scenarioCol')}</span>
+        <span>{t('stepWord')}</span>
+        <span>{metric === 'median' ? t('median') : t('spreadCol')}</span>
+        <span>{metric === 'median' ? t('spreadCol') : t('median')}</span>
+      </div>
+      {rows.map((row) => (
+        <div key={`${row.scenario}/${row.stepId}`} className="stats-flaky">
+          <span className="muted">{row.scenario.replace(/\.ya?ml$/, '')}</span>
+          <StepCell step={row} />
+          <span className="mono">{metric === 'median' ? fmtMs(row.medianMs) : `×${row.spread.toFixed(1)}`}</span>
+          <span className={`mono${metric === 'median' ? ' muted' : ''}`}>
+            {metric === 'median' ? `×${row.spread.toFixed(1)}` : fmtMs(row.medianMs)}
+          </span>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+/** Green because nobody ran it: the most dangerous kind of green. */
+function StaleTable({
+  rows,
+  onOpenRun,
+}: {
+  rows: StaleScenario[]
+  onOpenRun: (scenario: string, run: number) => void
+}) {
+  return (
+    <section className="scn-section">
+      <header>{t('notRunLately')}</header>
+      <div className="stats-flaky head">
+        <span>{t('scenarioCol')}</span>
+        <span />
+        <span>{t('sinceCol')}</span>
+        <span>{t('lastRunCol')}</span>
+      </div>
+      {rows.map((row) => (
+        <div key={row.scenario} className="stats-flaky">
+          <span className="stats-step-id">{row.name}</span>
+          <span />
+          <span className="mono warn">{t('daysAgo', row.days)}</span>
+          <span className="mono">
+            <button className="link" onClick={() => onOpenRun(row.scenario, row.run)}>
+              #{row.run} · {relativeWhen(row.lastRunAt)}
             </button>
           </span>
         </div>
@@ -320,6 +383,9 @@ export function StatsScreen({
       </section>
 
       {stats.flaky.length > 0 && <FlakyTable rows={stats.flaky} onOpenRun={onOpenRun} />}
+      {stats.slowest.length > 0 && <StepsTable title={t('slowestSteps')} rows={stats.slowest} metric="median" />}
+      {stats.unstable.length > 0 && <StepsTable title={t('unstableSteps')} rows={stats.unstable} metric="spread" />}
+      {stats.stale.length > 0 && <StaleTable rows={stats.stale} onOpenRun={onOpenRun} />}
     </div>
   )
 }

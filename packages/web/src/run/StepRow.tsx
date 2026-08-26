@@ -3,6 +3,7 @@ import { Check, ChevronDown, Circle, Cross, Minus, Pause, Spinner } from '../ico
 import { t } from '../i18n'
 import { fmtMs, type StepView } from '../runState'
 import { hasDetails } from './labels'
+import { useClipped } from '../ui/useClipped'
 
 const STATUS_ICON: Record<StepView['status'], ReactNode> = {
   pending: <Circle size={11} />,
@@ -10,6 +11,16 @@ const STATUS_ICON: Record<StepView['status'], ReactNode> = {
   passed: <Check size={13} />,
   failed: <Cross size={13} />,
   skipped: <Minus size={12} />,
+}
+
+/** The name is capped by its column, so it carries a tooltip only when it is cut off. */
+function StepName({ label }: { label: string }) {
+  const [ref, clipped] = useClipped<HTMLSpanElement>(label)
+  return (
+    <span ref={ref} className="step-name" title={clipped ? label : undefined}>
+      {label}
+    </span>
+  )
 }
 
 /** One row of the step list: status, method, path, code and duration. */
@@ -41,7 +52,7 @@ export function StepRow({
         {pause ? <Pause size={11} /> : STATUS_ICON[step.status]}
       </span>
       <span className="step-num">{index + 1}</span>
-      <span className="step-name">{step.name ?? step.id}</span>
+      <StepName label={step.name ?? step.id} />
       <span className="step-method">{step.kind === 'sleep' ? '—' : step.method}</span>
       <span className="step-path">
         {step.kind === 'sleep'

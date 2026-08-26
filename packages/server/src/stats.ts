@@ -5,6 +5,8 @@ import type {
   RunIndexEntry,
   RunRecord,
   ScenarioStats,
+  SlowStep,
+  StaleScenario,
   StepStats,
 } from '@pulse/shared'
 import { RunStore } from './storage.js'
@@ -15,6 +17,13 @@ const MIN_RUNS = 5
 /** A duration change is reported only when it is both relatively and absolutely visible. */
 const MIN_DELTA_SHARE = 0.1
 const MIN_DELTA_MS = 20
+
+/** Slowest tenth of the runs: the tail that a median hides. */
+function p90(values: number[]): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.9) - 1)]
+}
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null
@@ -76,6 +85,7 @@ function collectSteps(records: RunRecord[]): StepStats[] {
     method: s.method,
     path: s.path,
     medianMs: median(s.durations),
+    p90Ms: p90(s.durations),
     ...trend(s.durations),
     failures: s.failures,
     retried: s.retried,
@@ -170,6 +180,60 @@ function flakySteps(scenarios: ScenarioStats[], store: RunStore, projectId: stri
   return flaky.sort((a, b) => b.rate - a.rate)
 }
 
+/** How many entries each supporting table shows before it becomes a wall of text. */
+const TOP_N = 6
+
+/** A tail twice the median is a real swing, not measurement noise. */
+const SPREAD_RATIO = 2
+const SPREAD_MIN_MS = 50
+
+/** A scenario untouched for this long is green only because nobody ran it. */
+const STALE_DAYS = 7
+
+const stepsOf = (scenarios: ScenarioStats[]): (StepStats & { scenario: string; spread: number })[] =>
+  scenarios.flatMap((s) =>
+    s.steps
+      .filter((step): step is StepStats & { medianMs: number } => step.medianMs !== null && step.medianMs > 0)
+      .map((step) => ({
+        ...step,
+        scenario: s.scenario,
+        spread: step.p90Ms !== null ? step.p90Ms / step.medianMs : 1,
+      })),
+  )
+
+/** The slowest endpoints of the project — the question a green project asks. */
+function slowestSteps(scenarios: ScenarioStats[]): SlowStep[] {
+  return stepsOf(scenarios)
+    .sort((a, b) => b.medianMs - a.medianMs)
+    .slice(0, TOP_N)
+    .map(({ scenario, stepId, method, path, medianMs, spread, counted }) => ({
+      scenario,
+      stepId,
+      method,
+      path,
+      medianMs: medianMs!,
+      spread,
+      counted,
+    }))
+}
+
+/** Steps whose time swings: stable 300 ms and "either 100 or 900" are different things. */
+function unstableSteps(scenarios: ScenarioStats[]): SlowStep[] {
+  return stepsOf(scenarios)
+    .filter((step) => step.medianMs! >= SPREAD_MIN_MS && step.spread >= SPREAD_RATIO)
+    .sort((a, b) => b.spread - a.spread)
+    .slice(0, TOP_N)
+    .map(({ scenario, stepId, method, path, medianMs, spread, counted }) => ({
+      scenario,
+      stepId,
+      method,
+      path,
+      medianMs: medianMs!,
+      spread,
+      counted,
+    }))
+}
+
 /** Sorted by how much the scenario slowed down, then by how often it fails. */
 function bySeverity(a: ScenarioStats, b: ScenarioStats): number {
   const slow = (s: ScenarioStats) => s.deltaPct ?? -Infinity
@@ -198,12 +262,29 @@ export function projectStats(
   const stats = windows.map((i) => scenarioStats(store, projectId, i.path, i.name, i.windowed)).sort(bySeverity)
   const dates = windows.flatMap((i) => i.windowed.map((e) => e.startedAt)).sort()
 
+  const dayMs = 86_400_000
+  const stale: StaleScenario[] = windows
+    .map((i) => ({ item: i, last: i.windowed.at(-1) }))
+    .filter((x) => x.last !== undefined)
+    .map(({ item, last }) => ({
+      scenario: item.path,
+      name: item.name,
+      run: last!.run,
+      lastRunAt: last!.startedAt,
+      days: Math.floor((Date.now() - Date.parse(last!.startedAt)) / dayMs),
+    }))
+    .filter((s) => s.days >= STALE_DAYS)
+    .sort((a, b) => b.days - a.days)
+
   return {
     window,
     host,
     hosts,
     scenarios: stats,
     flaky: flakySteps(stats, store, projectId),
+    slowest: slowestSteps(stats),
+    unstable: unstableSteps(stats),
+    stale,
     runs: windows.reduce((sum, i) => sum + i.windowed.length, 0),
     from: dates[0],
     to: dates.at(-1),

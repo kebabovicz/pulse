@@ -322,6 +322,8 @@ export interface StepStats {
   method?: string
   path?: string
   medianMs: number | null
+  /** the slow tail: how long the step takes in its worst tenth of runs */
+  p90Ms: number | null
   /** median of the newer half against the older half of the window */
   deltaMs: number | null
   deltaPct: number | null
@@ -345,6 +347,27 @@ export interface ScenarioStats {
   steps: StepStats[]
 }
 
+/** A step listed among the slowest endpoints of the project. */
+export interface SlowStep {
+  scenario: string
+  stepId: string
+  method?: string
+  path?: string
+  medianMs: number
+  /** p90 / median: how much the slow tail exceeds the usual time */
+  spread: number
+  counted: number
+}
+
+/** A scenario nobody has run for a while: green only because it stands still. */
+export interface StaleScenario {
+  scenario: string
+  name: string
+  run: number
+  lastRunAt: string
+  days: number
+}
+
 /** A step that passes only on a retry inside a scenario that looks healthy. */
 export interface FlakyStep {
   scenario: string
@@ -363,6 +386,9 @@ export interface ProjectStats {
   hosts: string[]
   scenarios: ScenarioStats[]
   flaky: FlakyStep[]
+  slowest: SlowStep[]
+  unstable: SlowStep[]
+  stale: StaleScenario[]
   runs: number
   from?: string
   to?: string

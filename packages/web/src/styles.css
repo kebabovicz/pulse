@@ -249,15 +249,22 @@ body {
   align-items: center;
 }
 
+/* the ci mark never gets cut: only the steps-and-date part shrinks */
 .scenario-row .meta {
-  display: block;
+  display: flex;
   margin-top: 2px;
   color: var(--text-muted);
   font-weight: 400;
   font-size: 11px;
   white-space: nowrap;
+}
+.meta-main {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.meta-ci {
+  flex: none;
+  padding-left: 5px;
 }
 .scenario-row .meta.invalid {
   color: var(--warn);

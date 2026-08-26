@@ -174,20 +174,20 @@ function ScenarioMeta({ item }: { item: ScenarioListItem }) {
   }
   return (
     <span className="meta">
-      {t('steps', item.stepCount)}
-      {item.lastRun && ` · ${lastRunLabel(item.lastRun)}`}
-      {item.ci && <span className="accent"> · ci</span>}
+      <span className="meta-main">
+        {t('steps', item.stepCount)}
+        {item.lastRun && ` · ${lastRunLabel(item.lastRun)}`}
+      </span>
+      {item.ci && <span className="accent meta-ci">· ci</span>}
     </span>
   )
 }
 
+/** Only when it ran: the outcome is already carried by the status icon. */
 function lastRunLabel(last: NonNullable<ScenarioListItem['lastRun']>): string {
   const when = new Date(last.startedAt)
   const sameDay = when.toDateString() === new Date().toDateString()
-  const date = sameDay
+  return sameDay
     ? when.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })
     : when.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })
-  if (last.status === 'passed') return `${t('passed')} · ${date}`
-  if (last.status === 'failed') return `${t('failed')} · ${date}`
-  return date
 }

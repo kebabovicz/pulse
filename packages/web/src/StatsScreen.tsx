@@ -18,6 +18,16 @@ const WINDOWS = [20, 50, 100, 200]
 
 const pct = (share: number): string => `${Math.round(share * 100)} %`
 
+/** Colour follows the number: nothing green until four runs out of five pass. */
+function passClass(rate: number | null): string {
+  if (rate === null) return 'muted'
+  const percent = Math.round(rate * 100)
+  if (percent === 0) return 'muted'
+  if (percent <= 40) return 'bad'
+  if (percent < 80) return 'warn'
+  return 'ok'
+}
+
 /** Nothing to report is written as a dash, never as a zero. */
 const dash = '—'
 
@@ -131,7 +141,7 @@ function ScenarioRow({
           {stats.counted} / {stats.total}
         </span>
         <Chain chain={stats.chain} />
-        <span className={`mono${stats.passRate === null ? ' muted' : stats.passRate < 0.9 ? ' bad' : ''}`}>
+        <span className={`mono ${passClass(stats.passRate)}`}>
           {stats.passRate === null ? dash : pct(stats.passRate)}
         </span>
         <span className={`mono${stats.medianMs === null ? ' muted' : ''}`}>

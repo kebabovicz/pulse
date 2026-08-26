@@ -175,13 +175,13 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
             onClick={() => setTab('compare')}
             label={t('tabCompare')}
           />
+          <TabButton active={tab === 'stats'} onClick={() => setTab('stats')} label={t('tabStats')} />
           <TabButton
             active={tab === 'scenario'}
             disabled={!selectedPath}
             onClick={() => setTab('scenario')}
             label={t('tabScenario')}
           />
-          <TabButton active={tab === 'stats'} onClick={() => setTab('stats')} label={t('tabStats')} />
         </div>
         {/* the key restarts the fade on every tab switch, but not while a tab updates in place */}
         <div className="tab-panel" key={tab}>

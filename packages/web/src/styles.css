@@ -511,6 +511,9 @@ body {
 .step-row:hover {
   background: var(--bg-elev);
 }
+.step-row.retried {
+  background: var(--tint-warn);
+}
 .step-row.failed {
   background: var(--tint-fail);
 }

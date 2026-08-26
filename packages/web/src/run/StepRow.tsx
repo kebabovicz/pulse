@@ -29,9 +29,11 @@ export function StepRow({
   const expandable = hasDetails(step)
   // a finished pause checked nothing, so it gets a neutral mark instead of a tick
   const pause = step.kind === 'sleep' && step.status === 'passed'
+  // passed, but not on the first try — the same "attention" tint the timeline uses
+  const retried = step.status === 'passed' && attempts > 1
   return (
     <button
-      className={`step-row ${step.status}${open ? ' open' : ''}`}
+      className={`step-row ${step.status}${retried ? ' retried' : ''}${open ? ' open' : ''}`}
       style={expandable ? undefined : { cursor: 'default' }}
       onClick={expandable ? onToggle : undefined}
     >

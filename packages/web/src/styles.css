@@ -663,7 +663,7 @@ body {
 
 .check-row {
   display: grid;
-  grid-template-columns: 14px minmax(140px, 200px) 60px 1fr 60px 1fr;
+  grid-template-columns: 14px var(--key-col, 200px) 60px minmax(0, 1fr) 60px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   min-height: 26px;
@@ -696,7 +696,7 @@ body {
 
 .capture-row {
   display: grid;
-  grid-template-columns: 48px minmax(120px, 180px) 1fr minmax(120px, 260px) auto;
+  grid-template-columns: 48px var(--key-col, 180px) minmax(0, 1fr) minmax(120px, 200px) auto;
   gap: 12px;
   align-items: center;
   min-height: 26px;
@@ -719,7 +719,8 @@ body {
 .kv-key {
   font-weight: 600;
   font-size: 11px;
-  min-width: 140px;
+  width: var(--key-col, 140px);
+  flex: none;
 }
 .clip {
   overflow: hidden;
@@ -754,7 +755,7 @@ body {
 }
 .jt-row {
   display: grid;
-  grid-template-columns: 48px minmax(220px, 360px) 1fr;
+  grid-template-columns: 48px var(--key-col, 220px) minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   min-height: 26px;

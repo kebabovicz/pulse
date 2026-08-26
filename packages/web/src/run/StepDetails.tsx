@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { Check, Cross } from '../icons'
 import { t } from '../i18n'
 import { JsonTree } from '../JsonTree'
@@ -30,6 +31,17 @@ function isStructuredJson(text: string): boolean {
   }
 }
 
+/** Keys of a JSON object body, empty when the body is not one. */
+function bodyKeys(body: string | null): string[] {
+  if (body === null) return []
+  try {
+    const parsed: unknown = JSON.parse(body)
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? Object.keys(parsed) : []
+  } catch {
+    return []
+  }
+}
+
 function RequestBodyRows({ body }: { body: string }) {
   let parsed: unknown
   try {
@@ -51,6 +63,15 @@ function RequestBodyRows({ body }: { body: string }) {
       ))}
     </>
   )
+}
+
+/**
+ * Width of the key column, in characters of the monospace grid: values line up
+ * right after the longest key of that section instead of at a fixed offset.
+ */
+function keyCol(keys: string[]): CSSProperties {
+  const longest = keys.reduce((max, k) => Math.max(max, k.length), 0)
+  return { '--key-col': `${longest + 2}ch` } as CSSProperties
 }
 
 /** Expanded step: checks, request, response and captured variables. */
@@ -82,7 +103,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
   return (
     <div className="step-details">
       {checks.length > 0 && (
-        <section>
+        <section className="det-checks" style={keyCol(checks.map(checkLabel))}>
           {sorted.map((c, i) => (
             <div key={i} className={`check-row ${c.passed ? 'passed' : 'failed'}`}>
               <span className={c.passed ? 'ok' : 'bad'}>{c.passed ? <Check size={12} /> : <Cross size={12} />}</span>
@@ -102,7 +123,10 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
         </section>
       )}
       {r.request && (
-        <section>
+        <section
+          className="det-request"
+          style={keyCol([...Object.keys(r.request.headers), ...bodyKeys(r.request.body)])}
+        >
           <header>
             <span className="detail-head-line">
               <span className="mono detail-head-method">{r.request.method}</span>
@@ -157,7 +181,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
         </section>
       )}
       {r.response && (
-        <section>
+        <section className="det-response" style={keyCol(['set-cookie'])}>
           <header>
             <span className="detail-head-line">
               <span className={`mono ${statusOk ? 'ok' : 'bad'}`}>{r.response.status}</span>
@@ -200,7 +224,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
         </section>
       )}
       {(r.captures?.length ?? 0) > 0 && (
-        <section>
+        <section className="det-captures" style={keyCol(r.captures!.map((c) => c.name))}>
           <header>
             {t('variables')}
             <CopyButton text={r.captures!.map((c) => `${c.name}=${c.value}`).join('\n')} />
@@ -228,7 +252,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
         </section>
       )}
       {r.error && (
-        <section>
+        <section className="det-error">
           <header className="bad">{t('error')}</header>
           <div className="kv-row mono">{r.error.message}</div>
         </section>

@@ -1,7 +1,7 @@
 // JSON tree as a table: type and value sit in fixed columns and only the key
 // indent conveys hierarchy. The tree is flattened to the rows that are actually
 // visible, so the zebra follows what the eye sees rather than the data shape.
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { t } from './i18n'
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
@@ -80,9 +80,13 @@ export function JsonTree({ text }: { text: string }) {
       return next
     })
 
+  const rows = flatten(entriesOf(json), toggled, '', 0)
+  // the value column starts right after the longest visible key, indent included
+  const longest = rows.reduce((max, row) => Math.max(max, row.name.length + row.depth * 2), 0)
+
   return (
-    <div className="json-tree">
-      {flatten(entriesOf(json), toggled, '', 0).map((row) => (
+    <div className="json-tree" style={{ '--key-col': `${longest + 3}ch` } as CSSProperties}>
+      {rows.map((row) => (
         <div
           key={row.path}
           className={`jt-row${row.branch ? ' jt-branch-row' : ''}`}

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { saveVarDefaults, type ScenarioVar } from './api'
 import { Check, Cross, Eye, EyeOff } from './icons'
 import { t } from './i18n'
@@ -26,6 +26,17 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
   const [saved, setSaved] = useState(false)
   const [active, setActive] = useState<string | null>(null)
   const inputs = useRef(new Map<string, HTMLInputElement>())
+  const rootRef = useRef<HTMLElement>(null)
+
+  // a click anywhere outside the section puts the generator hints away
+  useEffect(() => {
+    if (!active) return
+    const onDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setActive(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [active])
 
   const dirty = vars.some((v) => values[v.name] !== v.default)
 
@@ -64,7 +75,7 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
     })
 
   return (
-    <section className="scn-section">
+    <section className="scn-section" ref={rootRef}>
       <header>
         {t('variables')}
         <span className="muted vars-hint">{t('defaultsHint')}</span>

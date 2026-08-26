@@ -6,6 +6,7 @@ import { Copy } from './icons'
 import { t } from './i18n'
 import { parseDurationLabel } from './runState'
 import { ScenarioVars } from './ScenarioVars'
+import { ClipValue } from './ui/ClipValue'
 import { colWidth, cols } from './ui/columns'
 
 function CopyRaw({ text }: { text: string }) {
@@ -120,18 +121,12 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
             {scenario.steps.map((step, i) => (
               <div key={step.id} className="scn-step">
                 <span className="step-num">{i + 1}</span>
-                <span className="scn-step-id" title={step.id}>
-                  {step.id}
-                </span>
-                <span className="scn-step-name" title={step.name ?? undefined}>
-                  {step.name ?? ''}
-                </span>
+                <span className="scn-step-id">{step.id}</span>
+                <span className="scn-step-name">{step.name ?? ''}</span>
                 {isRequestStep(step) ? (
                   <>
                     <span className="step-method">{step.request.method}</span>
-                    <span className="step-path" title={step.request.path ?? step.request.url}>
-                      {step.request.path ?? step.request.url}
-                    </span>
+                    <ClipValue className="step-path" text={step.request.path ?? step.request.url ?? ''} />
                     <span className="scn-step-expect">
                       {Array.isArray(step.expect.status) ? step.expect.status.join('|') : step.expect.status}
                       {' · '}
@@ -143,9 +138,7 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
                     </span>
                     <span className="scn-step-captures">
                       {step.capture && (
-                        <span className="sub-badge" title={Object.keys(step.capture).join(', ')}>
-                          → {Object.keys(step.capture).join(', ')}
-                        </span>
+                        <ClipValue className="sub-badge" text={`→ ${Object.keys(step.capture).join(', ')}`} />
                       )}
                     </span>
                   </>

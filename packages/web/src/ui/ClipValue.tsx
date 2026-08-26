@@ -5,8 +5,8 @@ import { useClipped } from './useClipped'
 /**
  * A value that does not fit its column: clipped to one line, and expanded to as
  * many lines as it needs on click. Only actually clipped values react, so short
- * ones stay plain text. Selecting text never counts as a click, so a value can
- * still be picked with the mouse and copied.
+ * ones stay plain text — the pointer cursor is the only hint needed, no tooltip.
+ * Selecting text never counts as a click, so a value can still be picked and copied.
  */
 export function ClipValue({ text, className = '' }: { text: string; className?: string }) {
   const [open, setOpen] = useState(false)
@@ -17,7 +17,6 @@ export function ClipValue({ text, className = '' }: { text: string; className?: 
     <span
       ref={ref}
       className={`clip-value${className ? ` ${className}` : ''}${interactive ? ' expandable' : ''}${open ? ' open' : ''}`}
-      title={clipped && !open ? text : undefined}
       onClick={
         interactive
           ? () => {

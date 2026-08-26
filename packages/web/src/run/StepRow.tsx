@@ -39,9 +39,7 @@ export function StepRow({
         {pause ? <Pause size={11} /> : STATUS_ICON[step.status]}
       </span>
       <span className="step-num">{index + 1}</span>
-      <span className="step-name" title={step.name ?? step.id}>
-        {step.name ?? step.id}
-      </span>
+      <span className="step-name">{step.name ?? step.id}</span>
       <span className="step-method">{step.kind === 'sleep' ? '—' : step.method}</span>
       <span className="step-path">
         {step.kind === 'sleep'

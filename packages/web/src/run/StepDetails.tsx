@@ -113,9 +113,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
           {sorted.map((c, i) => (
             <div key={i} className={`check-row ${c.passed ? 'passed' : 'failed'}`}>
               <span className={c.passed ? 'ok' : 'bad'}>{c.passed ? <Check size={12} /> : <Cross size={12} />}</span>
-              <span className="mono check-name" title={checkLabel(c)}>
-                {checkLabel(c)}
-              </span>
+              <span className="mono check-name">{checkLabel(c)}</span>
               <span className="muted check-label">{t('expected')}</span>
               <ClipValue className="mono check-value" text={c.expected} />
               <span className="muted check-label">{t('actual')}</span>
@@ -254,9 +252,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
                 <span className="kv-origin">{c.from}</span>
                 <span className="kv-key accent">{c.name}</span>
                 <ClipValue className="mono capture-value" text={c.value} />
-                <span className="muted clip capture-detail" title={c.detail}>
-                  {c.detail}
-                </span>
+                <ClipValue className="muted capture-detail" text={c.detail} />
                 {usedBy.length > 0 && (
                   <span className="sub-badge" title={usedBy.join(', ')}>
                     {t('usedIn', usedBy.length)}

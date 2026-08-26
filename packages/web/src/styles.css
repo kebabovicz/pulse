@@ -486,15 +486,6 @@ body {
   pointer-events: none;
   z-index: 110;
 }
-/* the shared tooltip carries whole values, so it wraps and anchors below the cursor */
-.hover-tip.wrapping {
-  transform: none;
-  max-width: 340px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  font-size: 11px;
-  line-height: 1.45;
-}
 
 /* ── step rows ── */
 .steps {

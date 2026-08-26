@@ -2,4 +2,6 @@ dist
 node_modules
 .local
 docs
+spec
+SPEC.md
 package-lock.json

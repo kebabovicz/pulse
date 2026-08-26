@@ -308,7 +308,7 @@ export interface RunRecord {
 }
 
 export interface RunsGroup {
-  scenario: string // относительный путь файла
+  scenario: string // relative file path
   name: string
   runs: RunIndexEntry[] // newest first
 }

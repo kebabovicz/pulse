@@ -20,6 +20,7 @@ export function App() {
   const [projectId, setProjectId] = useState<string | null>(() => localStorage.getItem(PROJECT_KEY))
   const [configPath, setConfigPath] = useState('')
   const [needLogin, setNeedLogin] = useState(false)
+  const [authed, setAuthed] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
 
   const project = projects.find((p) => p.id === projectId) ?? projects[0]
@@ -31,29 +32,30 @@ export function App() {
     })
 
   useEffect(() => {
-    void reloadProjects().catch((e: unknown) => {
-      if (e instanceof ApiError && e.status === 401) setNeedLogin(true)
-    })
+    void reloadProjects()
+      .then(() => setAuthed(true))
+      .catch((e: unknown) => {
+        if (e instanceof ApiError && e.status === 401) setNeedLogin(true)
+      })
   }, [])
 
   useEffect(() => {
     if (project) localStorage.setItem(PROJECT_KEY, project.id)
   }, [project])
 
-  useEffect(
-    () =>
-      subscribeToEvents((event) => {
-        if (event.type !== 'health-changed') return
-        setProjects((prev) =>
-          prev.map((p) =>
-            p.id === event.project
-              ? { ...p, health: { status: event.status, reason: event.reason, checkedAt: event.ts } }
-              : p,
-          ),
-        )
-      }),
-    [],
-  )
+  useEffect(() => {
+    if (!authed) return
+    return subscribeToEvents((event) => {
+      if (event.type !== 'health-changed') return
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === event.project
+            ? { ...p, health: { status: event.status, reason: event.reason, checkedAt: event.ts } }
+            : p,
+        ),
+      )
+    })
+  }, [authed])
 
   if (needLogin) return <Login />
 

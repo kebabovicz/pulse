@@ -2,6 +2,25 @@ import { JSONPath } from 'jsonpath-plus'
 import type { BodyCheck, CheckResult, RequestStep, StepResult } from '@pulse/shared'
 
 const PREVIEW_LIMIT = 120
+/** A regex from a scenario can be malformed or interpolated at run time: never let it throw. */
+function matches(pattern: string, text: string): boolean {
+  try {
+    return new RegExp(pattern).test(text)
+  } catch {
+    return false
+  }
+}
+
+/** Ordered comparison for gt/lt; null when the value cannot be compared to the bound. */
+function compareOrdered(value: unknown, expected: string, numericBound: boolean): number | null {
+  if (numericBound) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return null
+    return value - Number(expected)
+  }
+  if (typeof value !== 'string') return null
+  return value < expected ? -1 : value > expected ? 1 : 0
+}
+
 const preview = (s: string): string => (s.length > PREVIEW_LIMIT ? `${s.slice(0, PREVIEW_LIMIT)}…` : s)
 
 /** Evaluates every check of a step; all of them run even after the first failure. */
@@ -38,12 +57,7 @@ export function evalChecks(
 function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s: string) => string): CheckResult {
   if ('text' in check) {
     const expected = render(check.matches)
-    return {
-      kind: 'body-text',
-      expected,
-      actual: preview(text),
-      passed: new RegExp(expected).test(text),
-    }
+    return { kind: 'body-text', expected, actual: preview(text), passed: matches(expected, text) }
   }
   const found: unknown[] = json === undefined ? [] : JSONPath({ path: check.path, json, wrap: true })
   const value = found[0]
@@ -101,33 +115,25 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
       predicate: 'matches',
       expected,
       actual,
-      passed: found.length > 0 && new RegExp(expected).test(String(value)),
+      passed: found.length > 0 && matches(expected, String(value)),
     }
   }
   if (check.gt !== undefined || check.lt !== undefined) {
     const op = check.gt !== undefined ? 'gt' : 'lt'
     const raw = check.gt ?? check.lt
     const expected = typeof raw === 'string' ? render(raw) : String(raw)
-    // numbers compare numerically, strings lexicographically (ISO dates work)
-    const bothNumeric = typeof value === 'number' && !Number.isNaN(Number(expected))
-    const cmp =
-      found.length === 0
-        ? 0
-        : bothNumeric
-          ? Number(value) - Number(expected)
-          : String(value) < expected
-            ? -1
-            : String(value) > expected
-              ? 1
-              : 0
-    const passed = found.length > 0 && (op === 'gt' ? cmp > 0 : cmp < 0)
+    // Numbers compare numerically, strings lexicographically (ISO dates work).
+    // Anything else — null, objects, a value of the wrong type — fails: a bound
+    // check must never pass just because String() produced something comparable.
+    const numericBound = expected.trim() !== '' && !Number.isNaN(Number(expected))
+    const cmp = compareOrdered(value, expected, numericBound)
     return {
       kind: 'body-path',
       path: check.path,
       predicate: op,
       expected: `${op === 'gt' ? '>' : '<'} ${expected}`,
       actual,
-      passed,
+      passed: found.length > 0 && cmp !== null && (op === 'gt' ? cmp > 0 : cmp < 0),
     }
   }
   if (check.length !== undefined || check.minLength !== undefined || check.maxLength !== undefined) {

@@ -1,4 +1,4 @@
-/* Токены — docs/DESIGN.md (направление «терминальное», docs/RESTYLE.md). */
+/* Tokens from docs/DESIGN.md (terminal direction). */
 :root {
   --bg-app: #0a0b0d;
   --bg-panel: #0e0f11;
@@ -33,15 +33,18 @@
   box-sizing: border-box;
 }
 
-/* Focus in the app's own style instead of the bright system ring.
-   Text inputs get an accent border, everything else a thin keyboard-only ring. */
+/* Focus in the app's own style instead of the bright system ring: an accent
+   outline keeps the contrast a focus indicator needs (WCAG 2.2 SC 1.4.11). */
 :focus-visible {
-  outline: 1px solid var(--border-strong);
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-input:focus,
-input:focus-visible {
+/* Typing focus is quieter: the field border alone carries it. */
+input[type='text']:focus,
+input[type='search']:focus,
+input[type='password']:focus,
+input:not([type]):focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -54,7 +57,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* десктопный инструмент: ниже 960px вёрстка не ломается, а скроллится целиком */
+/* desktop tool: below 960px the layout scrolls instead of breaking */
 #root {
   display: grid;
   grid-template-rows: 44px 1fr;
@@ -62,7 +65,7 @@ body {
   min-width: 960px;
 }
 
-/* ── шапка ── */
+/* ── header ── */
 .header {
   display: flex;
   align-items: center;
@@ -103,7 +106,7 @@ body {
   margin-left: 12px;
 }
 
-/* ── select проекта ── */
+/* ── project select ── */
 .select {
   position: relative;
 }
@@ -161,7 +164,7 @@ body {
   display: inline-flex;
 }
 
-/* ── раскладка ── */
+/* ── layout ── */
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -182,6 +185,7 @@ body {
 }
 
 .scenario-item {
+  position: relative; /* anchors the absolutely positioned scenario menu */
   display: flex;
   align-items: center;
 }
@@ -256,7 +260,7 @@ body {
   padding: 0 24px 24px;
 }
 
-/* ── вкладки рабочей области (req 64) ── */
+/* ── workspace tabs (req 64) ── */
 .tabs {
   display: flex;
   align-items: center;
@@ -299,7 +303,7 @@ body {
   font-size: 11px;
 }
 
-/* ── экран прогона ── */
+/* ── run screen ── */
 .run-screen {
   max-width: 1360px;
 }
@@ -375,7 +379,7 @@ body {
   margin-top: 2px;
 }
 
-/* шкала прогона + итог времени (req 65) */
+/* run timeline plus total duration (req 65) */
 .timeline-wrap {
   display: flex;
   align-items: center;
@@ -394,7 +398,7 @@ body {
   white-space: nowrap;
 }
 
-/* сегмент — зона наведения; полоску рисует ::before, чтобы рост не задевал подсказку */
+/* the segment is the hover area; ::before draws the bar so growth never moves the tip */
 .tl-seg {
   --seg: var(--border-strong);
   position: relative;
@@ -434,7 +438,7 @@ body {
   transform: scaleY(2);
 }
 
-/* плашка наведённого отрезка — фиксированно у курсора, вне потока */
+/* hovered segment tip: fixed at the cursor, outside the flow */
 .hover-tip {
   position: fixed;
   transform: translate(-50%, -100%);
@@ -449,7 +453,7 @@ body {
   z-index: 110;
 }
 
-/* ── строки шагов ── */
+/* ── step rows ── */
 .steps {
   border-top: 1px solid var(--border);
 }
@@ -477,7 +481,7 @@ body {
   background: var(--tint-fail);
 }
 
-/* раскрытая строка — заголовок своего блока: приподнята и липнет под вкладками */
+/* an expanded row is the header of its block: raised and sticky under the tabs */
 .step-row.open {
   position: sticky;
   top: 37px;
@@ -558,7 +562,7 @@ body {
   transition: transform 0.15s ease;
 }
 
-/* ── детали шага: секции без рамок ── */
+/* ── step details: borderless sections ── */
 .step-details {
   padding: 0 0 14px 44px;
   border-bottom: 1px solid var(--border);
@@ -694,7 +698,7 @@ body {
   border-top: 0;
 }
 
-/* ── таблица-дерево JSON ── */
+/* ── JSON tree table ── */
 .json-tree {
   padding: 2px 0;
 }
@@ -762,7 +766,7 @@ details[open] > summary .jt-branch::before {
   font-size: 10px;
 }
 
-/* ── сегментный переключатель, копирование ── */
+/* ── segmented control, copying ── */
 .seg {
   display: inline-flex;
   gap: 2px;
@@ -804,7 +808,7 @@ details[open] > summary .jt-branch::before {
   color: var(--text-primary);
 }
 
-/* ── кнопки ── */
+/* ── buttons ── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -842,7 +846,7 @@ details[open] > summary .jt-branch::before {
   color: var(--warn);
 }
 
-/* ── чекбоксы ── */
+/* ── checkboxes ── */
 input[type='checkbox'] {
   appearance: none;
   width: 14px;
@@ -871,7 +875,7 @@ input[type='checkbox']:checked::after {
   transform: scale(1);
 }
 
-/* ── история (вкладка на весь проект) ── */
+/* ── history (project-wide tab) ── */
 .history-toolbar {
   display: flex;
   align-items: center;
@@ -1004,7 +1008,7 @@ input[type='checkbox']:checked::after {
   border-color: var(--border);
 }
 
-/* ── сравнение ── */
+/* ── comparison ── */
 .compare-chips {
   display: flex;
   align-items: center;
@@ -1045,8 +1049,8 @@ input[type='checkbox']:checked::after {
   background: var(--warn);
 }
 
-/* ── модалка ── */
-/* z-иерархия: sticky-строки 5 < вкладки 10 < меню 20–30 < плашки 40 < модалки 100 */
+/* ── modal ── */
+/* z-order: sticky rows 5 < tabs 10 < menus 20-30 < badges 40 < modals 100 */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1122,7 +1126,7 @@ input[type='checkbox']:checked::after {
   margin-top: 20px;
 }
 
-/* ── пустые состояния, фрагмент файла ── */
+/* ── empty states, file fragment ── */
 .empty {
   display: grid;
   place-content: center;
@@ -1186,7 +1190,7 @@ input[type='checkbox']:checked::after {
   font-size: 11px;
 }
 
-/* ── плавность: коротко и тихо ── */
+/* ── motion: short and quiet ── */
 .btn,
 .tab,
 .seg-item,
@@ -1245,7 +1249,7 @@ input[type='checkbox'] {
   }
 }
 
-/* ── вкладка Scenario: сетки переменных и шагов ── */
+/* ── Scenario tab: variable and step grids ── */
 .scn-var {
   display: grid;
   grid-template-columns: 48px minmax(160px, 240px) 1fr 100px;
@@ -1380,7 +1384,7 @@ input[type='checkbox'] {
   color: var(--accent);
 }
 
-/* ── бренд и «о приложении» ── */
+/* ── brand and about dialog ── */
 .brand {
   display: inline-flex;
   align-items: center;
@@ -1550,7 +1554,7 @@ input[type='search']::-webkit-search-cancel-button {
   }
 }
 
-/* вспышка строки, к которой перешли по ссылке */
+/* flash of the row a link navigated to */
 .row-flash > .step-row {
   animation: row-flash 0.9s ease;
 }

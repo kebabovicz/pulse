@@ -139,16 +139,23 @@ export class Runner {
 
     const startedMs = Date.now()
     let failed: StepResult | undefined
-    for (const [i, step] of scenario.steps.entries()) {
-      let result: StepResult
-      if (failed || ctx.signal.aborted) {
-        result = { stepId: step.id, status: 'skipped' }
-      } else {
-        result = isRequestStep(step) ? await this.runRequest(ctx, step) : await this.runSleep(ctx, step)
+    let internalError: string | undefined
+    try {
+      for (const [i, step] of scenario.steps.entries()) {
+        let result: StepResult
+        if (failed || ctx.signal.aborted) {
+          result = { stepId: step.id, status: 'skipped' }
+        } else {
+          result = isRequestStep(step) ? await this.runRequest(ctx, step) : await this.runSleep(ctx, step)
+        }
+        this.publish(ctx, { type: 'step-finished', ...result })
+        Object.assign(record.steps[i], result)
+        if (result.status === 'failed' && !failed) failed = result
       }
-      this.publish(ctx, { type: 'step-finished', ...result })
-      Object.assign(record.steps[i], result)
-      if (result.status === 'failed' && !failed) failed = result
+    } catch (e) {
+      // a scenario can still blow up mid-flight (a bad regex, a broken URL):
+      // record it as a failed run instead of leaving the run hanging forever
+      internalError = e instanceof Error ? e.message : String(e)
     }
     clearTimeout(timer)
     const timedOut = runAbort.signal.aborted && !signal.aborted
@@ -164,7 +171,15 @@ export class Runner {
       if (ctx.signal.aborted) {
         result = { stepId: step.id, status: 'skipped' }
       } else {
-        result = isRequestStep(step) ? await this.runRequest(ctx, step) : await this.runSleep(ctx, step)
+        try {
+          result = isRequestStep(step) ? await this.runRequest(ctx, step) : await this.runSleep(ctx, step)
+        } catch (e) {
+          result = {
+            stepId: step.id,
+            status: 'failed',
+            error: { kind: 'internal', message: e instanceof Error ? e.message : String(e) },
+          }
+        }
       }
       this.publish(ctx, { type: 'step-finished', ...result })
       Object.assign(record.steps[recordIndex], result)
@@ -173,8 +188,9 @@ export class Runner {
 
     record.durationMs = Date.now() - startedMs
     record.finishedAt = new Date().toISOString()
-    record.status = signal.aborted ? 'stopped' : failed || timedOut ? 'failed' : 'passed'
-    if (timedOut) record.message = `run timeout (${Math.round(ctx.project.runTimeoutMs / 1000)}s)`
+    record.status = signal.aborted ? 'stopped' : failed || timedOut || internalError ? 'failed' : 'passed'
+    if (internalError) record.message = internalError
+    else if (timedOut) record.message = `run timeout (${Math.round(ctx.project.runTimeoutMs / 1000)}s)`
     record.failedStep = failed?.stepId
     record.failedCheck = failed?.checks?.find((c) => !c.passed)
     record.cleanupFailed = cleanupFailed || undefined
@@ -351,7 +367,7 @@ export class Runner {
           value = found.length ? String(found[0]) : ''
           detail = spec.path
         } else if (spec.regex) {
-          value = new RegExp(spec.regex).exec(text)?.[1] ?? ''
+          value = safeExec(spec.regex, text)
           detail = `regex: ${spec.regex}`
         } else {
           value = text
@@ -375,11 +391,20 @@ export class Runner {
   }
 }
 
+/** First capture group of a scenario regex; a malformed pattern captures nothing instead of throwing. */
+function safeExec(pattern: string, text: string): string {
+  try {
+    return new RegExp(pattern).exec(text)?.[1] ?? ''
+  } catch {
+    return ''
+  }
+}
+
 function initVars(scenario: Scenario, overrides: Record<string, string>, space: TemplateSpace): RunVar[] {
   const vars: RunVar[] = []
   for (const [name, def] of Object.entries(scenario.vars ?? {})) {
     const secret = def.secret ?? false
-    const override = overrides[name]
+    const override = Object.hasOwn(overrides, name) ? overrides[name] : undefined
     const value = space.render(override ?? String(def.default ?? '')).text
     space.set(name, { value, fromStep: null, secret })
     vars.push({

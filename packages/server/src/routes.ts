@@ -33,13 +33,23 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   const baseUrl = (p: Project): string => mergedHosts(p)[activeHost(p)]
   ctx.resolveBaseUrl = baseUrl
 
-  // relative path inside the scenarios folder, no escaping outwards
-  const safeRel = (rel: unknown): string | null => {
+  /**
+   * A relative path that provably stays inside `root`. Backslashes are folded
+   * first (they are ordinary characters on POSIX, so normalize would keep them),
+   * and the resolved result is checked against the root itself.
+   */
+  const safeRel = (rel: unknown, root: string): string | null => {
     if (typeof rel !== 'string' || rel === '') return null
-    const normalized = path.normalize(rel).replaceAll('\\', '/')
+    const normalized = path.normalize(rel.replaceAll('\\', '/'))
     if (normalized.startsWith('..') || path.isAbsolute(normalized)) return null
+    const base = path.resolve(root)
+    const resolved = path.resolve(base, normalized)
+    if (resolved !== base && !resolved.startsWith(base + path.sep)) return null
     return normalized
   }
+
+  /** Every route that touches project data resolves the id first. */
+  const findProject = (id: string): Project | undefined => ctx.config().projects.find((p) => p.id === id)
 
   app.get('/api/projects', () => {
     const { projects, errors } = ctx.config()
@@ -57,7 +67,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   // switch the active host of a project (persisted, re-checks availability at once)
   app.put<{ Params: { id: string }; Body: { host: string } }>('/api/projects/:id/host', async (req, reply) => {
-    const project = ctx.config().projects.find((p) => p.id === req.params.id)
+    const project = findProject(req.params.id)
     if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     if (!mergedHosts(project)[req.body.host]) return reply.code(400).send({ message: `no host "${req.body.host}"` })
     ctx.state.setActiveHost(project.id, req.body.host)
@@ -66,7 +76,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   // add or remove a host from the UI (kept in state.json, the config is untouched)
   app.post<{ Params: { id: string }; Body: { name: string; url: string } }>('/api/projects/:id/hosts', (req, reply) => {
-    const project = ctx.config().projects.find((p) => p.id === req.params.id)
+    const project = findProject(req.params.id)
     if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     const { name, url } = req.body
     if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(name))
@@ -78,7 +88,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   })
 
   app.post<{ Params: { id: string }; Body: { name: string } }>('/api/projects/:id/hosts/delete', (req, reply) => {
-    const project = ctx.config().projects.find((p) => p.id === req.params.id)
+    const project = findProject(req.params.id)
     if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     if (project.hosts[req.body.name])
       return reply.code(400).send({ message: 'hosts defined in the config are removed in projects.yaml' })
@@ -90,9 +100,9 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post<{ Params: { id: string }; Body: { path: string; content: string } }>(
     '/api/projects/:id/scenarios/import',
     (req, reply) => {
-      const project = ctx.config().projects.find((p) => p.id === req.params.id)
+      const project = findProject(req.params.id)
       if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
-      const rel = safeRel(req.body.path)
+      const rel = safeRel(req.body.path, project.scenariosDir)
       if (!rel || !/\.ya?ml$/.test(rel))
         return reply.code(400).send({ message: 'path must be a .yaml file inside the scenarios folder' })
       const { content } = req.body
@@ -116,10 +126,10 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post<{ Params: { id: string }; Body: { from: string; to: string } }>(
     '/api/projects/:id/scenarios/rename',
     (req, reply) => {
-      const project = ctx.config().projects.find((p) => p.id === req.params.id)
+      const project = findProject(req.params.id)
       if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
-      const from = safeRel(req.body.from)
-      const to = safeRel(req.body.to)
+      const from = safeRel(req.body.from, project.scenariosDir)
+      const to = safeRel(req.body.to, project.scenariosDir)
       if (!from || !to) return reply.code(400).send({ message: 'invalid path' })
       const absFrom = path.join(project.scenariosDir, from)
       const absTo = path.join(project.scenariosDir, to)
@@ -129,21 +139,32 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       if (!isDir && !/\.ya?ml$/.test(to)) return reply.code(400).send({ message: 'path must end with .yaml' })
       fs.mkdirSync(path.dirname(absTo), { recursive: true })
       fs.renameSync(absFrom, absTo)
-      // drop folders that became empty
-      let dir = path.dirname(absFrom)
-      while (dir !== project.scenariosDir && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
+      // drop folders that became empty, never climbing past the scenarios root
+      const root = path.resolve(project.scenariosDir)
+      let dir = path.dirname(path.resolve(absFrom))
+      while (
+        dir !== root &&
+        dir.startsWith(root + path.sep) &&
+        fs.existsSync(dir) &&
+        fs.readdirSync(dir).length === 0
+      ) {
         fs.rmdirSync(dir)
         dir = path.dirname(dir)
       }
-      ctx.runs.renamePaths(project.id, from, to, isDir)
+      const moved = isDir
+        ? (ctx.scenarios.list(project.id) ?? [])
+            .filter((s) => s.path === from || s.path.startsWith(from + '/'))
+            .map((s) => [s.path, to + s.path.slice(from.length)] as [string, string])
+        : [[from, to] as [string, string]]
+      ctx.runs.renamePaths(project.id, moved)
       return { from, to }
     },
   )
 
   app.post<{ Params: { id: string }; Body: { path: string } }>('/api/projects/:id/scenarios/delete', (req, reply) => {
-    const project = ctx.config().projects.find((p) => p.id === req.params.id)
+    const project = findProject(req.params.id)
     if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
-    const rel = safeRel(req.body.path)
+    const rel = safeRel(req.body.path, project.scenariosDir)
     if (!rel) return reply.code(400).send({ message: 'invalid path' })
     const abs = path.join(project.scenariosDir, rel)
     if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory()) return reply.code(404).send({ message: `no "${rel}"` })
@@ -175,7 +196,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   })
 
   app.post<{ Params: { id: string } }>('/api/projects/:id/health-check', async (req, reply) => {
-    const project = ctx.config().projects.find((p) => p.id === req.params.id)
+    const project = findProject(req.params.id)
     if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     return ctx.health.check(project)
   })
@@ -216,13 +237,21 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post<{ Params: { id: string }; Body: { scenario: string; vars?: Record<string, string> } }>(
     '/api/projects/:id/run',
     (req, reply) => {
-      const project = ctx.config().projects.find((p) => p.id === req.params.id)
+      const project = findProject(req.params.id)
       if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
       const loaded = ctx.scenarios.get(project.id, req.body.scenario)
       if (!loaded) return reply.code(404).send({ message: `no scenario "${req.body.scenario}"` })
       if (!loaded.scenario) return reply.code(400).send({ message: 'scenario is invalid', error: loaded.summary.error })
       if (ctx.runner.isBusy(project.id)) return reply.code(409).send({ message: 'a run is already in progress' })
-      const { run } = ctx.runner.start(project, loaded, req.body.vars ?? {}, activeHost(project), baseUrl(project))
+      const { run, finished } = ctx.runner.start(
+        project,
+        loaded,
+        req.body.vars ?? {},
+        activeHost(project),
+        baseUrl(project),
+      )
+      // the run continues in the background; an internal failure must not become an unhandled rejection
+      finished.catch((e: unknown) => app.log.error({ err: e }, 'run failed'))
       return { run }
     },
   )
@@ -246,9 +275,9 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post<{ Params: { id: string }; Body: { path: string; enabled: boolean } }>(
     '/api/projects/:id/scenarios/ci-toggle',
     (req, reply) => {
-      const project = ctx.config().projects.find((p) => p.id === req.params.id)
+      const project = findProject(req.params.id)
       if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
-      const rel = safeRel(req.body.path)
+      const rel = safeRel(req.body.path, project.scenariosDir)
       if (!rel || !ctx.scenarios.get(project.id, rel)) return reply.code(404).send({ message: `no such scenario` })
       ctx.state.setCiScenario(project.id, rel, Boolean(req.body.enabled))
       return { path: rel, ci: Boolean(req.body.enabled) }
@@ -260,7 +289,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post<{ Params: { id: string }; Body?: { host?: string; scenarios?: string[] } }>(
     '/api/projects/:id/ci/run',
     async (req, reply) => {
-      const project = ctx.config().projects.find((p) => p.id === req.params.id)
+      const project = findProject(req.params.id)
       if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
       if (ctx.runner.isBusy(project.id))
         return reply.code(409).send({ message: 'a run is in progress — try again later' })
@@ -305,23 +334,31 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   // clear history: body {scenario} for one scenario, empty body for the whole project
   app.post<{ Params: { id: string }; Body: { scenario?: string } }>('/api/projects/:id/runs/clear', (req, reply) => {
-    const project = ctx.config().projects.find((p) => p.id === req.params.id)
+    const project = findProject(req.params.id)
     if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     if (ctx.runner.isBusy(project.id)) return reply.code(409).send({ message: 'a run is in progress — stop it first' })
-    const scenario = req.body?.scenario ? safeRel(req.body.scenario) : undefined
+    const scenario = req.body?.scenario ? safeRel(req.body.scenario, project.scenariosDir) : undefined
     if (req.body?.scenario && !scenario) return reply.code(400).send({ message: 'invalid path' })
     ctx.runs.clear(project.id, scenario ?? undefined)
     return { cleared: scenario ?? '*' }
   })
 
-  app.get<{ Params: { id: string }; Querystring: { scenario: string } }>('/api/projects/:id/runs', (req) => ({
-    runs: ctx.runs.readIndex(req.params.id, RunStore.scenarioKey(req.query.scenario)).reverse(),
-  }))
+  app.get<{ Params: { id: string }; Querystring: { scenario?: string } }>('/api/projects/:id/runs', (req, reply) => {
+    const project = findProject(req.params.id)
+    if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+    const scenario = safeRel(req.query.scenario, project.scenariosDir)
+    if (!scenario) return reply.code(400).send({ message: 'scenario query parameter is required' })
+    return { runs: ctx.runs.readIndex(project.id, RunStore.scenarioKey(scenario)).reverse() }
+  })
 
-  app.get<{ Params: { id: string; run: string }; Querystring: { scenario: string } }>(
+  app.get<{ Params: { id: string; run: string }; Querystring: { scenario?: string } }>(
     '/api/projects/:id/runs/:run',
     (req, reply) => {
-      const record = ctx.runs.getRun(req.params.id, RunStore.scenarioKey(req.query.scenario), Number(req.params.run))
+      const project = findProject(req.params.id)
+      if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+      const scenario = safeRel(req.query.scenario, project.scenariosDir)
+      if (!scenario) return reply.code(400).send({ message: 'scenario query parameter is required' })
+      const record = ctx.runs.getRun(project.id, RunStore.scenarioKey(scenario), Number(req.params.run))
       if (!record) return reply.code(404).send({ message: 'no such run' })
       return record
     },

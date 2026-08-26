@@ -63,7 +63,8 @@ export function RunScreen({
   }
 
   // the failed step expands by itself: adjust state during render, scroll in an effect
-  const [seenFailure, setSeenFailure] = useState(state.failedStep)
+  // seeded empty so a stored failed run also expands on its very first render
+  const [seenFailure, setSeenFailure] = useState<string | undefined>(undefined)
   if (state.failedStep !== seenFailure) {
     setSeenFailure(state.failedStep)
     if (state.failedStep) setOpen((prev) => new Set([...prev, state.failedStep!]))

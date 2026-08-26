@@ -40,11 +40,20 @@ export function loadConfig(dataDir: string): AppConfig {
   }
 
   const rawSettings = (raw.settings ?? {}) as Record<string, string>
+  /** A malformed value is reported and replaced by the default — the app keeps running. */
+  const parse = <T>(label: string, value: string | undefined, fallback: string, parser: (v: string) => T): T => {
+    try {
+      return parser(value ?? fallback)
+    } catch (e) {
+      errors.push(`settings.${label}: ${(e as Error).message}`)
+      return parser(fallback)
+    }
+  }
   const settings: Settings = {
-    healthIntervalMs: parseDuration(rawSettings.healthInterval ?? '30s'),
-    stepTimeoutMs: parseDuration(rawSettings.stepTimeout ?? '10s'),
-    runTimeoutMs: parseDuration(rawSettings.runTimeout ?? '5m'),
-    bodyLimitBytes: parseSize(rawSettings.bodyLimit ?? '256kb'),
+    healthIntervalMs: parse('healthInterval', rawSettings.healthInterval, '30s', parseDuration),
+    stepTimeoutMs: parse('stepTimeout', rawSettings.stepTimeout, '10s', parseDuration),
+    runTimeoutMs: parse('runTimeout', rawSettings.runTimeout, '5m', parseDuration),
+    bodyLimitBytes: parse('bodyLimit', rawSettings.bodyLimit, '256kb', parseSize),
   }
 
   const projects: Project[] = []
@@ -90,8 +99,14 @@ export function loadConfig(dataDir: string): AppConfig {
       hosts,
       scenariosDir,
       healthPath: typeof p.healthPath === 'string' ? p.healthPath : undefined,
-      stepTimeoutMs: typeof p.stepTimeout === 'string' ? parseDuration(p.stepTimeout) : settings.stepTimeoutMs,
-      runTimeoutMs: typeof p.runTimeout === 'string' ? parseDuration(p.runTimeout) : settings.runTimeoutMs,
+      stepTimeoutMs:
+        typeof p.stepTimeout === 'string'
+          ? parse(`${label}.stepTimeout`, p.stepTimeout, '10s', parseDuration)
+          : settings.stepTimeoutMs,
+      runTimeoutMs:
+        typeof p.runTimeout === 'string'
+          ? parse(`${label}.runTimeout`, p.runTimeout, '5m', parseDuration)
+          : settings.runTimeoutMs,
     })
   }
   return { settings, projects, errors }

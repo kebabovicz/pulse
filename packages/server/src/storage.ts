@@ -61,25 +61,19 @@ export class RunStore {
     fs.rmSync(target, { recursive: true, force: true })
   }
 
-  /** Moves run history along with a renamed scenario file or folder. */
-  renamePaths(projectId: string, fromRel: string, toRel: string, isDir: boolean): void {
+  /**
+   * Moves run history for the given scenario paths. Callers pass exact
+   * `[from, to]` pairs, so a folder rename never touches an unrelated scenario
+   * whose name happens to share the prefix.
+   */
+  renamePaths(projectId: string, moves: [string, string][]): void {
     const root = path.join(this.dataDir, 'runs', projectId)
     if (!fs.existsSync(root)) return
-    if (!isDir) {
+    for (const [fromRel, toRel] of moves) {
       const from = path.join(root, RunStore.scenarioKey(fromRel))
-      if (fs.existsSync(from)) {
-        const to = path.join(root, RunStore.scenarioKey(toRel))
-        fs.mkdirSync(path.dirname(to), { recursive: true })
-        fs.renameSync(from, to)
-      }
-      return
-    }
-    const fromPrefix = `${RunStore.scenarioKey(fromRel + '/x')}`.slice(0, -1) // "dir__"
-    const toPrefix = `${RunStore.scenarioKey(toRel + '/x')}`.slice(0, -1)
-    for (const entry of fs.readdirSync(root)) {
-      if (entry.startsWith(fromPrefix)) {
-        fs.renameSync(path.join(root, entry), path.join(root, toPrefix + entry.slice(fromPrefix.length)))
-      }
+      const to = path.join(root, RunStore.scenarioKey(toRel))
+      if (!fs.existsSync(from) || fs.existsSync(to)) continue // nothing to move, or the target already has history
+      fs.renameSync(from, to)
     }
   }
 

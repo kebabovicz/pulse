@@ -35,9 +35,11 @@ const apply = async () => {
   )
 }
 
+// config reloads are serialised: two quick edits must not race the watchers
+let applying: Promise<void> = Promise.resolve()
 chokidar.watch(configPath(dataDir), { ignoreInitial: true }).on('all', () => {
   config = loadConfig(dataDir)
-  void apply()
+  applying = applying.then(apply).catch((e: unknown) => console.error('config reload failed:', e))
 })
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })

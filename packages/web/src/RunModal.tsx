@@ -36,17 +36,20 @@ export function RunModal({
     })
   }, [project, path])
 
-  if (vars === null) return null
-  const launch = () => {
-    const overrides = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== ''))
+  const launch = (overrides: Record<string, string>) => {
     localStorage.setItem(varsKey(project, path), JSON.stringify(overrides))
     onLaunch(overrides)
   }
-  if (vars.length === 0) {
-    // nothing to ask about without variables: run straight away
-    launch()
-    return null
-  }
+
+  const launchEntered = () => launch(Object.fromEntries(Object.entries(values).filter(([, v]) => v !== '')))
+
+  // nothing to ask about without variables: run straight away, from an effect
+  useEffect(() => {
+    if (vars?.length === 0) launch({})
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once the details arrive
+  }, [vars])
+
+  if (vars === null || vars.length === 0) return null
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -95,7 +98,7 @@ export function RunModal({
           <button className="btn" onClick={onClose}>
             {t('cancel')}
           </button>
-          <button className="btn primary" onClick={launch}>
+          <button className="btn primary" onClick={launchEntered}>
             {t('run')}
           </button>
         </div>

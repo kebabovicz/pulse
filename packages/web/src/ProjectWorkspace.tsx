@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ProjectView, RunRecord, RunsGroup, ScenarioListItem } from '@pulse/shared'
 import {
   clearRuns,
@@ -41,6 +41,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [compare, setCompare] = useState<[RunRecord, RunRecord] | null>(null)
   const [invalidFragment, setInvalidFragment] = useState<FileFragment | null>(null)
   const [modalPath, setModalPath] = useState<string | null>(null)
+  // guards against a stale scenario load landing after a newer one
+  const openRequest = useRef(0)
 
   const reloadScenarios = () => fetchScenarios(project.id).then(({ scenarios }) => setScenarios(scenarios))
 
@@ -55,12 +57,14 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
             const ci = prev.find((s) => s.path === event.path)?.ci ?? false
             return [...rest, { ...event.summary, ci }].sort((a, b) => a.path.localeCompare(b.path))
           })
-        } else if (live && 'run' in event) {
+        } else if ('run' in event) {
+          // no live flag in the condition: reduce() itself ignores events of
+          // other runs, so an event arriving before React re-renders is not lost
           setRunState((prev) => (prev ? reduce(prev, event) : prev))
           if (event.type === 'run-finished') setLive(false)
         }
       }),
-    [project.id, live],
+    [project.id],
   )
 
   const resetView = () => {
@@ -75,13 +79,18 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     setTab('run')
     resetView()
     localStorage.setItem(lastScenarioKey(project.id), path)
+    const request = ++openRequest.current
     const item = list.find((s) => s.path === path)
     if (item && !item.valid) {
-      setInvalidFragment((await fetchScenarioDetail(project.id, path)).fragment)
+      const { fragment } = await fetchScenarioDetail(project.id, path)
+      if (request === openRequest.current) setInvalidFragment(fragment)
       return
     }
     const { runs } = await fetchRuns(project.id, path)
-    if (runs.length > 0) setRunState(fromRecord(await fetchRun(project.id, path, runs[0].run)))
+    if (runs.length === 0) return
+    const record = await fetchRun(project.id, path, runs[0].run)
+    // a slower earlier request must not overwrite what the user opened since
+    if (request === openRequest.current) setRunState(fromRecord(record))
   }
 
   // the History tab shows the whole project history; the filter chip is applied

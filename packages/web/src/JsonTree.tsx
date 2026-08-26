@@ -17,7 +17,7 @@ function Value({ value }: { value: Json }) {
     return (
       <span
         className={`jt-string${long ? ' expandable' : ''}`}
-        title={long && !full ? t('showValue') : undefined}
+        title={long && !full ? t('expandValue') : undefined}
         onClick={long ? () => setFull(!full) : undefined}
       >
         "{shown}"

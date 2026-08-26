@@ -4,6 +4,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { load as loadYaml, YAMLException } from 'js-yaml'
 import { Ajv2020 } from 'ajv/dist/2020.js'
+import { JSONPath } from 'jsonpath-plus'
 import chokidar, { type FSWatcher } from 'chokidar'
 import { isRequestStep, type Scenario, type ScenarioSummary, type Step } from '@pulse/shared'
 import type { Project } from './config.js'
@@ -87,6 +88,38 @@ export function loadScenarioFile(absPath: string, relPath: string): LoadedScenar
 // references, capturing into a used name, known generators.
 const BUILTIN = /^(random\.(phone|uuid|digits\(\d+\)|string\(\d+\))|timestamp|runStartedAt)$/
 
+/** A regex or JSONPath that only fails at run time would hang the run, so both are compiled up front. */
+function expressionError(step: Step): string | null {
+  if (!isRequestStep(step)) return null
+  const patterns = [
+    ...(step.expect.body ?? []).flatMap((check) => ('matches' in check && check.matches ? [check.matches] : [])),
+    ...Object.values(step.capture ?? {}).flatMap((spec) => (spec.from === 'body' && spec.regex ? [spec.regex] : [])),
+  ]
+  for (const pattern of patterns) {
+    // interpolations are only known at run time; validate the literal parts
+    if (pattern.includes('{{')) continue
+    try {
+      new RegExp(pattern)
+    } catch (e) {
+      return `step "${step.id}": invalid regular expression ${JSON.stringify(pattern)} (${(e as Error).message})`
+    }
+  }
+  const paths = [
+    ...(step.expect.body ?? []).flatMap((check) =>
+      'path' in check ? [check.path, ...('equalsPath' in check && check.equalsPath ? [check.equalsPath] : [])] : [],
+    ),
+    ...Object.values(step.capture ?? {}).flatMap((spec) => (spec.from === 'body' && spec.path ? [spec.path] : [])),
+  ]
+  for (const jsonPath of paths) {
+    try {
+      JSONPath({ path: jsonPath, json: {}, wrap: true })
+    } catch (e) {
+      return `step "${step.id}": invalid JSONPath ${JSON.stringify(jsonPath)} (${(e as Error).message})`
+    }
+  }
+  return null
+}
+
 export function semanticError(scenario: Scenario): string | null {
   const allSteps = [...scenario.steps, ...(scenario.cleanup ?? [])]
   const ids = new Set<string>()
@@ -102,6 +135,8 @@ export function semanticError(scenario: Scenario): string | null {
     }
   }
   for (const step of allSteps) {
+    const expression = expressionError(step)
+    if (expression) return expression
     for (const ref of stepRefs(step)) {
       if (BUILTIN.test(ref) || known.has(ref)) continue
       return `step "${step.id}": {{${ref}}} is not defined above (vars or an earlier capture)`
@@ -156,6 +191,7 @@ export class ScenarioStore {
         .on('add', (p) => this.upsert(project, p, 'added'))
         .on('change', (p) => this.upsert(project, p, 'updated'))
         .on('unlink', (p) => this.remove(project, p))
+        .on('error', (e) => console.error(`scenario watcher for ${project.id}:`, e))
       this.watchers.push(watcher)
     }
   }

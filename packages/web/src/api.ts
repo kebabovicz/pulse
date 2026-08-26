@@ -92,6 +92,13 @@ export const addHost = (project: string, name: string, url: string) =>
 export const deleteHost = (project: string, name: string) =>
   post<{ deleted: string }>(`/api/projects/${project}/hosts/delete`, { name })
 
+export const saveVarDefaults = (project: string, path: string, values: Record<string, string>) =>
+  request<{ updated: string[] }>(`/api/projects/${project}/scenario/vars`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path, values }),
+  })
+
 export const importScenario = (project: string, path: string, content: string) =>
   post<{ path: string }>(`/api/projects/${project}/scenarios/import`, { path, content })
 

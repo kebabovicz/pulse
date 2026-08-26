@@ -1577,3 +1577,32 @@ input[type='search']::-webkit-search-cancel-button {
     background: var(--tint-fail);
   }
 }
+
+/* the editable row adds a column for the reveal button */
+.scn-var.editable {
+  grid-template-columns: 48px minmax(160px, 240px) 1fr 24px 110px;
+}
+
+.var-input {
+  width: 100%;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+.vars-hint {
+  font-size: 10px;
+  margin-left: 12px;
+}
+.vars-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  margin-left: auto;
+}
+.vars-save {
+  margin-left: 12px;
+  padding: 3px 10px;
+}
+.scn-section header .vars-save + * {
+  margin-left: 0;
+}

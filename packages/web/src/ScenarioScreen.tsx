@@ -5,6 +5,7 @@ import { copyWithBadge } from './copy'
 import { Copy } from './icons'
 import { t } from './i18n'
 import { parseDurationLabel } from './runState'
+import { ScenarioVars } from './ScenarioVars'
 
 function CopyRaw({ text }: { text: string }) {
   return (
@@ -73,21 +74,7 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
         </section>
       ) : (
         <>
-          {detail.vars.length > 0 && (
-            <section className="scn-section">
-              <header>{t('variables')}</header>
-              {detail.vars.map((v) => (
-                <div key={v.name} className="scn-var">
-                  <span className="kv-origin">var</span>
-                  <span className="kv-key">{v.name}</span>
-                  <span className="mono clip">{v.secret ? '•••' : v.default}</span>
-                  <span className="muted scn-var-source">
-                    {v.secret ? <span className="warn">{t('secret')}</span> : t('defaultLabel')}
-                  </span>
-                </div>
-              ))}
-            </section>
-          )}
+          {detail.vars.length > 0 && <ScenarioVars key={path} project={project} path={path} vars={detail.vars} />}
           <section className="scn-section">
             <header>{t('stepsCol')}</header>
             {scenario.steps.map((step, i) => (

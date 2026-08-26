@@ -7,6 +7,7 @@ import type { EventBus } from './events.js'
 import type { HealthMonitor } from './health.js'
 import type { Runner } from './runner.js'
 import type { StateStore } from './state.js'
+import { updateVarDefaults } from './scenarioEditor.js'
 import { validateScenario, type ScenarioStore } from './scenarios.js'
 import { RunStore } from './storage.js'
 
@@ -119,6 +120,37 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       fs.mkdirSync(path.dirname(abs), { recursive: true })
       fs.writeFileSync(abs, content)
       return { path: rel }
+    },
+  )
+
+  /**
+   * Edits default values of scenario variables — the one edit Pulse allows in a
+   * scenario file. Secrets on a stand live here: CI runs pick them up from the
+   * file, and a human updates them in the UI.
+   */
+  app.put<{ Params: { id: string }; Body: { path: string; values: Record<string, string> } }>(
+    '/api/projects/:id/scenario/vars',
+    (req, reply) => {
+      const project = findProject(req.params.id)
+      if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+      const rel = safeRel(req.body.path, project.scenariosDir)
+      const loaded = rel ? ctx.scenarios.get(project.id, rel) : undefined
+      if (!rel || !loaded) return reply.code(404).send({ message: 'no such scenario' })
+      if (!loaded.scenario) return reply.code(400).send({ message: 'scenario is invalid' })
+
+      const values = req.body.values
+      if (typeof values !== 'object' || values === null) return reply.code(400).send({ message: 'values object expected' })
+      const declared = new Set(Object.keys(loaded.scenario.vars ?? {}))
+      const unknown = Object.keys(values).filter((name) => !declared.has(name))
+      if (unknown.length > 0) return reply.code(400).send({ message: `unknown variables: ${unknown.join(', ')}` })
+
+      const abs = path.join(project.scenariosDir, rel)
+      const { updated } = updateVarDefaults(abs, values)
+
+      // the file must stay valid after the edit
+      const check = validateScenario(fs.readFileSync(abs, 'utf8'))
+      if ('error' in check) return reply.code(500).send({ message: `edit broke the scenario: ${check.error.message}` })
+      return { updated }
     },
   )
 

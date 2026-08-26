@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronsDownUp, ChevronsUpDown, Repeat, StopSquare } from './icons'
 import { t } from './i18n'
 import { checkLabel, hasDetails } from './run/labels'
@@ -7,6 +7,12 @@ import { StepDetails } from './run/StepDetails'
 import { StepRow } from './run/StepRow'
 import { Timeline } from './run/Timeline'
 import { fileLabel, fmtTotal, type RunState } from './runState'
+
+/** The name column is as wide as the longest step label, so paths line up right after it. */
+function stepNameCol(steps: RunState['steps']): CSSProperties {
+  const longest = steps.reduce((max, s) => Math.max(max, (s.name ?? s.id).length), 0)
+  return { '--step-col': `${Math.min(longest + 2, 46)}ch` } as CSSProperties
+}
 
 const RUN_LABEL: Record<RunState['status'], string> = {
   running: t('running'),
@@ -146,7 +152,7 @@ export function RunScreen({
 
       <Timeline steps={state.steps} onPick={scrollToStep} />
 
-      <div className="steps">
+      <div className="steps" style={stepNameCol(state.steps)}>
         {state.steps.map((step, i) => (
           <div
             key={step.id}

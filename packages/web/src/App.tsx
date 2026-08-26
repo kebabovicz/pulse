@@ -6,6 +6,7 @@ import { subscribeToEvents } from './eventStream'
 import { HostMenu } from './HostMenu'
 import { PulseIcon } from './icons'
 import { dateLocale, lang, setLang, t } from './i18n'
+import { HoverTips } from './ui/HoverTips'
 import { Login } from './Login'
 import { ProjectWorkspace } from './ProjectWorkspace'
 import { Select } from './Select'
@@ -112,6 +113,7 @@ export function App() {
         </div>
       )}
       {aboutOpen && <About onClose={() => setAboutOpen(false)} />}
+      <HoverTips />
     </>
   )
 }

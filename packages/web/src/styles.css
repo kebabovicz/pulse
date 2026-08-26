@@ -300,7 +300,7 @@ body {
   border: 0;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
-  font: 400 12px var(--font-ui);
+  font: 400 11px var(--font-ui);
   padding: 10px 12px 8px;
   cursor: pointer;
 }
@@ -1011,6 +1011,9 @@ input[type='checkbox']:checked::after {
 }
 .history tr.diverged {
   background: var(--tint-fail);
+}
+.history tr.diverged td:first-child {
+  box-shadow: inset 3px 0 0 var(--fail);
 }
 .history tr.total td {
   color: var(--text-secondary);

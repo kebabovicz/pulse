@@ -142,7 +142,7 @@ export function HistoryScreen({
         <thead>
           <tr>
             <th style={{ width: 28 }} />
-            <th style={{ width: 60 }}>run</th>
+            <th style={{ width: 60 }}>{t('runCol')}</th>
             <th style={{ width: 140 }}>{t('when').toLowerCase()}</th>
             <th>{t('result').toLowerCase()}</th>
             <th style={{ width: 180 }}>{t('stepsCol').toLowerCase()}</th>

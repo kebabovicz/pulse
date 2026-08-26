@@ -536,6 +536,10 @@ body {
 .step-row.open.failed {
   background: #261a1d;
 }
+/* the retry mark survives expansion the same way a failure does, a shade brighter */
+.step-row.open.retried {
+  background: #24200f;
+}
 
 .step-icon {
   display: inline-flex;

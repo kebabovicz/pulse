@@ -11,7 +11,7 @@ import type {
 } from '@pulse/shared'
 import { RunStore } from './storage.js'
 
-/** Fewer runs than this and a median says nothing, so nothing is shown. */
+/** Below this many runs a trend is not attempted; the plain numbers still show. */
 const MIN_RUNS = 5
 
 /** A duration change is reported only when it is both relatively and absolutely visible. */
@@ -124,11 +124,10 @@ function scenarioStats(
     counted: counted.some((c) => c.run === e.run),
   }))
   const lastFailureEntry = [...windowed].reverse().find((e) => e.status === 'failed')
-  const enough = counted.length >= MIN_RUNS
   const durations = counted.map((e) => e.durationMs)
-  const records = enough
-    ? counted.map((e) => store.getRun(projectId, key, e.run)).filter((r): r is RunRecord => r !== undefined)
-    : []
+  const records = counted
+    .map((e) => store.getRun(projectId, key, e.run))
+    .filter((r): r is RunRecord => r !== undefined)
 
   return {
     scenario,
@@ -136,9 +135,11 @@ function scenarioStats(
     counted: counted.length,
     total: windowed.length,
     chain,
-    passRate: enough ? counted.filter((e) => e.status === 'passed').length / counted.length : null,
-    medianMs: enough ? median(durations) : null,
-    ...(enough ? trend(durations) : { deltaMs: null, deltaPct: null }),
+    // a pass rate and a median are plain facts about the runs that happened;
+    // only the trend needs a window long enough to have two halves
+    passRate: counted.length > 0 ? counted.filter((e) => e.status === 'passed').length / counted.length : null,
+    medianMs: median(durations),
+    ...trend(durations),
     lastFailure: lastFailureEntry && {
       run: lastFailureEntry.run,
       startedAt: lastFailureEntry.startedAt,

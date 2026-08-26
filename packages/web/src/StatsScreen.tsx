@@ -290,7 +290,7 @@ export function StatsScreen({
     return (
       <div className="empty">
         <div>{t('noStatsYet')}</div>
-        <div className="hint">{t('noStatsHint', stats.minRuns)}</div>
+        <div className="hint">{t('noStatsHint')}</div>
       </div>
     )
   }

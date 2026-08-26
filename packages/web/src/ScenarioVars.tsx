@@ -1,7 +1,17 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { saveVarDefaults, type ScenarioVar } from './api'
-import { Check, Eye, EyeOff } from './icons'
+import { Check, Cross, Eye, EyeOff } from './icons'
 import { t } from './i18n'
+
+/** Built-in generators, offered as one-click inserts (SPEC.md). */
+const GENERATORS = [
+  '{{random.phone}}',
+  '{{random.uuid}}',
+  '{{random.digits(6)}}',
+  '{{random.string(8)}}',
+  '{{timestamp}}',
+  '{{runStartedAt}}',
+]
 
 /**
  * Default values of scenario variables, editable in place. This is where a
@@ -14,6 +24,8 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
   )
   const [shown, setShown] = useState<Set<string>>(new Set())
   const [saved, setSaved] = useState(false)
+  const [active, setActive] = useState<string | null>(null)
+  const inputs = useRef(new Map<string, HTMLInputElement>())
 
   const dirty = vars.some((v) => values[v.name] !== v.default)
 
@@ -28,6 +40,19 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
+  }
+
+  /** Inserts a generator at the caret of the focused field. */
+  const insert = (name: string, snippet: string) => {
+    const input = inputs.current.get(name)
+    const current = values[name] ?? ''
+    const at = input?.selectionStart ?? current.length
+    const next = current.slice(0, at) + snippet + current.slice(input?.selectionEnd ?? at)
+    setValues({ ...values, [name]: next })
+    requestAnimationFrame(() => {
+      input?.focus()
+      input?.setSelectionRange(at + snippet.length, at + snippet.length)
+    })
   }
 
   const toggleShown = (name: string) =>
@@ -57,7 +82,11 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
           <span className="kv-origin">var</span>
           <span className="kv-key">{v.name}</span>
           <input
+            ref={(el) => {
+              if (el) inputs.current.set(v.name, el)
+            }}
             className="filter-input var-input"
+            onFocus={() => setActive(v.name)}
             type={v.secret && !shown.has(v.name) ? 'password' : 'text'}
             autoComplete="off"
             spellCheck={false}
@@ -68,6 +97,15 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
             onChange={(e) => setValues({ ...values, [v.name]: e.target.value })}
           />
           <span className="scn-var-source">
+            {values[v.name] !== v.default && (
+              <button
+                className="icon-btn"
+                title={t('resetValue')}
+                onClick={() => setValues({ ...values, [v.name]: v.default })}
+              >
+                <Cross size={12} />
+              </button>
+            )}
             {v.secret && (
               <button
                 className="icon-btn"
@@ -81,6 +119,22 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
           <span className="muted scn-var-source">
             {v.secret ? <span className="warn">{t('secret')}</span> : t('defaultLabel')}
           </span>
+          {active === v.name && (
+            <div className="var-generators">
+              <span className="muted">{t('generators')}</span>
+              {GENERATORS.map((snippet) => (
+                <button
+                  key={snippet}
+                  className="chip generator"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => insert(v.name, snippet)}
+                >
+                  {snippet}
+                </button>
+              ))}
+              <span className="muted var-generators-hint">{t('generatorsHint')}</span>
+            </div>
+          )}
         </div>
       ))}
     </section>

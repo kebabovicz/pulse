@@ -3,6 +3,7 @@ import { t } from '../i18n'
 import { JsonTree } from '../JsonTree'
 import type { RunState, StepView } from '../runState'
 import { CopyButton } from '../ui/CopyButton'
+import { ClipValue } from '../ui/ClipValue'
 import { colWidth, cols } from '../ui/columns'
 import { Seg, useViewMode } from '../ui/Seg'
 import { checkLabel } from './labels'
@@ -58,7 +59,7 @@ function RequestBodyRows({ body }: { body: string }) {
         <div key={key} className="kv-row">
           <span className="kv-origin">body</span>
           <span className="kv-key">{key}</span>
-          <span className="mono clip">{typeof value === 'string' ? `"${value}"` : JSON.stringify(value)}</span>
+          <ClipValue className="mono" text={typeof value === 'string' ? `"${value}"` : JSON.stringify(value)} />
         </div>
       ))}
     </>
@@ -116,13 +117,9 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
                 {checkLabel(c)}
               </span>
               <span className="muted check-label">{t('expected')}</span>
-              <span className="mono check-value" title={c.expected}>
-                {c.expected}
-              </span>
+              <ClipValue className="mono check-value" text={c.expected} />
               <span className="muted check-label">{t('actual')}</span>
-              <span className={`mono check-value${c.passed ? '' : ' bad'}`} title={c.actual ?? '—'}>
-                {c.actual ?? '—'}
-              </span>
+              <ClipValue className={`mono check-value${c.passed ? '' : ' bad'}`} text={c.actual ?? '—'} />
             </div>
           ))}
         </section>
@@ -174,9 +171,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
                   <div key={name} className="kv-row">
                     <span className="kv-origin">header</span>
                     <span className="kv-key">{name}</span>
-                    <span className="mono clip" title={value}>
-                      {value}
-                    </span>
+                    <ClipValue className="mono" text={value} />
                     {sub && (
                       <span className="sub-badge">
                         ← {sub.var}
@@ -215,9 +210,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
             <div className="kv-row">
               <span className="kv-origin">header</span>
               <span className="kv-key">set-cookie</span>
-              <span className="mono clip" title={r.response.headers['set-cookie']}>
-                {r.response.headers['set-cookie']}
-              </span>
+              <ClipValue className="mono" text={r.response.headers['set-cookie']} />
               {r.captures?.find((c) => c.from === 'cookie') && (
                 <span className="sub-badge">{r.captures.find((c) => c.from === 'cookie')!.name}</span>
               )}
@@ -260,9 +253,7 @@ export function StepDetails({ step, state, projectId }: { step: StepView; state:
               <div key={c.name} className="capture-row">
                 <span className="kv-origin">{c.from}</span>
                 <span className="kv-key accent">{c.name}</span>
-                <span className="mono clip capture-value" title={c.value}>
-                  {c.value}
-                </span>
+                <ClipValue className="mono capture-value" text={c.value} />
                 <span className="muted clip capture-detail" title={c.detail}>
                   {c.detail}
                 </span>

@@ -66,9 +66,9 @@ function StepRows({ steps }: { steps: StepStats[] }) {
     <div className="stats-nested">
       <div className="stats-step head">
         <span>{t('statsStepHead')}</span>
+        <span>{t('failuresCol')}</span>
         <span>{t('median')}</span>
         <span>{t('deltaMedian')}</span>
-        <span>{t('failuresCol')}</span>
         <span>{t('retriedCol')}</span>
       </div>
       {shown.map((step) => (
@@ -82,12 +82,12 @@ function StepRows({ steps }: { steps: StepStats[] }) {
               </span>
             )}
           </span>
+          <span className={`mono${step.failures > 0 ? ' bad' : ' muted'}`}>
+            {step.failures > 0 ? `${step.failures} / ${step.counted}` : dash}
+          </span>
           <span className="mono">{step.medianMs === null ? dash : fmtMs(step.medianMs)}</span>
           <span className="mono">
             <Delta pctValue={step.deltaPct} ms={step.deltaMs} />
-          </span>
-          <span className={`mono${step.failures > 0 ? ' bad' : ' muted'}`}>
-            {step.failures > 0 ? `${step.failures} / ${step.counted}` : dash}
           </span>
           <span className={`mono${step.retried > 0 ? ' warn' : ' muted'}`}>
             {step.retried > 0 ? `${step.retried} / ${step.counted}` : dash}

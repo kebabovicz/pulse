@@ -1,3 +1,4 @@
+import { dateLocale, t } from './i18n'
 import type {
   CheckResult,
   PulseEvent,
@@ -116,6 +117,17 @@ export function reduce(state: RunState, event: PulseEvent): RunState {
 
 function patchStep(state: RunState, stepId: string, patch: Partial<StepView>): RunState {
   return { ...state, steps: state.steps.map((s) => (s.id === stepId ? { ...s, ...patch } : s)) }
+}
+
+/** "today 12:04", "yesterday 11:13" or "25.08 16:29" — the app's one date format. */
+export function relativeWhen(iso: string): string {
+  const when = new Date(iso)
+  const time = when.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })
+  const day = when.toDateString()
+  const now = new Date()
+  if (day === now.toDateString()) return `${t('today')} ${time}`
+  if (day === new Date(now.getTime() - 86_400_000).toDateString()) return `${t('yesterday')} ${time}`
+  return `${when.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })} ${time}`
 }
 
 export const fmtMs = (ms: number): string => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`)

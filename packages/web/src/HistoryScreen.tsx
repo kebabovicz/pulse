@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { RunIndexEntry, RunsGroup, StepStatus } from '@pulse/shared'
 import { ChevronDown, Check, Cross, StopSquare, GitCompare, Trash } from './icons'
-import { t, dateLocale } from './i18n'
+import { t } from './i18n'
+import { relativeWhen } from './runState'
 
 export function MiniMap({ statuses }: { statuses: StepStatus[] }) {
   return (
@@ -11,16 +12,6 @@ export function MiniMap({ statuses }: { statuses: StepStatus[] }) {
       ))}
     </span>
   )
-}
-
-export function relativeWhen(iso: string): string {
-  const when = new Date(iso)
-  const time = when.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })
-  const day = when.toDateString()
-  const now = new Date()
-  if (day === now.toDateString()) return `${t('today')} ${time}`
-  if (day === new Date(now.getTime() - 86_400_000).toDateString()) return `${t('yesterday')} ${time}`
-  return `${when.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })} ${time}`
 }
 
 const fmtSec = (ms: number): string => `${(ms / 1000).toFixed(1).padStart(4, '0')} s`

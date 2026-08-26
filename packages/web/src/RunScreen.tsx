@@ -6,7 +6,7 @@ import { RunVariables } from './run/RunVariables'
 import { StepDetails } from './run/StepDetails'
 import { StepRow } from './run/StepRow'
 import { Timeline } from './run/Timeline'
-import { fileLabel, fmtTotal, type RunState } from './runState'
+import { fileLabel, fmtTotal, relativeWhen, type RunState } from './runState'
 import { colWidth, cols } from './ui/columns'
 
 /**
@@ -143,6 +143,12 @@ export function RunScreen({
           </span>
         )}
         {state.host && <span className="muted"> · {state.host}</span>}
+        {!running && state.durationMs != null && (
+          <span className="muted">
+            {' '}
+            · {relativeWhen(new Date(Date.parse(state.startedAt) + state.durationMs).toISOString())}
+          </span>
+        )}
         {state.cleanupFailed && <span className="warn"> · {t('cleanupFailed')}</span>}
         {state.message && <span className="warn"> · {state.message}</span>}
       </div>

@@ -54,12 +54,6 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
           <CopyRaw text={detail.raw} />
         </div>
       </div>
-      <div className="run-status muted">
-        {detail.description ?? ''}
-        {detail.description ? ' · ' : ''}
-        <span className="muted">{t('editHint')}</span>
-      </div>
-
       {mode === 'raw' || !scenario ? (
         <section className="fragment">
           <header className="muted">{path}</header>

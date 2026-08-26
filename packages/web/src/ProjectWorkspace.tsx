@@ -181,53 +181,56 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
             label={t('tabScenario')}
           />
         </div>
-        {tab === 'scenario' && selectedPath ? (
-          <ScenarioScreen project={project.id} path={selectedPath} />
-        ) : tab === 'compare' && compare ? (
-          <CompareScreen
-            a={compare[0]}
-            b={compare[1]}
-            onClose={() => void openHistory(selectedPath)}
-            onOpen={(run) => selectedPath && void openRun(selectedPath, run)}
-          />
-        ) : tab === 'history' ? (
-          <HistoryScreen
-            groups={historyGroups}
-            filter={historyFilter}
-            onFilter={setHistoryFilter}
-            onOpen={(scenario, run) => void openRun(scenario, run)}
-            onCompare={(scenario, a, b) => void openCompare(scenario, a, b)}
-            onClear={(scenario) => void clearHistory(scenario)}
-          />
-        ) : runState ? (
-          <RunScreen
-            state={runState}
-            projectId={project.id}
-            onStop={() => void stopRun(project.id)}
-            onRepeat={() => selectedPath && setModalPath(selectedPath)}
-          />
-        ) : selected && !selected.valid ? (
-          <InvalidScenario scenario={selected} fragment={invalidFragment} />
-        ) : selected ? (
-          <div className="empty">
-            <div>{t('notRunYet', selected.name)}</div>
-            <div className="hint">{t('historyAfterFirst')}</div>
-            <button className="btn primary" onClick={() => setModalPath(selected.path)}>
-              {t('run')}
-            </button>
-          </div>
-        ) : (
-          <div className="empty">
-            {scenarios.length === 0 ? (
-              <>
-                <div>{t('noScenarios')}</div>
-                <div className="hint">{t('noScenariosHint')}</div>
-              </>
-            ) : (
-              <div className="hint">{t('pickScenario')}</div>
-            )}
-          </div>
-        )}
+        {/* the key restarts the fade on every tab switch, but not while a tab updates in place */}
+        <div className="tab-panel" key={tab}>
+          {tab === 'scenario' && selectedPath ? (
+            <ScenarioScreen project={project.id} path={selectedPath} />
+          ) : tab === 'compare' && compare ? (
+            <CompareScreen
+              a={compare[0]}
+              b={compare[1]}
+              onClose={() => void openHistory(selectedPath)}
+              onOpen={(run) => selectedPath && void openRun(selectedPath, run)}
+            />
+          ) : tab === 'history' ? (
+            <HistoryScreen
+              groups={historyGroups}
+              filter={historyFilter}
+              onFilter={setHistoryFilter}
+              onOpen={(scenario, run) => void openRun(scenario, run)}
+              onCompare={(scenario, a, b) => void openCompare(scenario, a, b)}
+              onClear={(scenario) => void clearHistory(scenario)}
+            />
+          ) : runState ? (
+            <RunScreen
+              state={runState}
+              projectId={project.id}
+              onStop={() => void stopRun(project.id)}
+              onRepeat={() => selectedPath && setModalPath(selectedPath)}
+            />
+          ) : selected && !selected.valid ? (
+            <InvalidScenario scenario={selected} fragment={invalidFragment} />
+          ) : selected ? (
+            <div className="empty">
+              <div>{t('notRunYet', selected.name)}</div>
+              <div className="hint">{t('historyAfterFirst')}</div>
+              <button className="btn primary" onClick={() => setModalPath(selected.path)}>
+                {t('run')}
+              </button>
+            </div>
+          ) : (
+            <div className="empty">
+              {scenarios.length === 0 ? (
+                <>
+                  <div>{t('noScenarios')}</div>
+                  <div className="hint">{t('noScenariosHint')}</div>
+                </>
+              ) : (
+                <div className="hint">{t('pickScenario')}</div>
+              )}
+            </div>
+          )}
+        </div>
       </main>
       {modalPath && (
         <RunModal

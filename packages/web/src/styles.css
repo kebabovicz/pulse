@@ -629,6 +629,16 @@ body {
   color: var(--text-primary);
 }
 
+/* switching a tab fades the panel in, so the swap is not an instant jump */
+.tab-panel {
+  animation: panel-in 0.18s ease;
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -1291,14 +1301,13 @@ input[type='checkbox'] {
   display: grid;
   grid-template-columns: 48px minmax(160px, 240px) 1fr 100px;
   gap: 12px;
-  align-items: baseline;
+  align-items: center;
   min-height: 26px;
   padding: 4px 20px;
-  border-top: 1px solid var(--border);
   font-size: 11px;
 }
-.scn-var:first-of-type {
-  border-top: 0;
+.scn-var:nth-of-type(even) {
+  background: var(--row-alt);
 }
 .scn-var-source {
   text-align: right;
@@ -1309,14 +1318,13 @@ input[type='checkbox'] {
   display: grid;
   grid-template-columns: 18px minmax(150px, 230px) minmax(160px, 330px) 52px 1fr minmax(120px, auto) minmax(0, auto);
   gap: 12px;
-  align-items: baseline;
+  align-items: center;
   min-height: 26px;
   padding: 4px 20px;
-  border-top: 1px solid var(--border);
   font-size: 11px;
 }
-.scn-step:first-of-type {
-  border-top: 0;
+.scn-step:nth-of-type(even) {
+  background: var(--row-alt);
 }
 .scn-step-id {
   font-weight: 600;

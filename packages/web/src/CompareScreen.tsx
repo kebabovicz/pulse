@@ -59,7 +59,6 @@ export function CompareScreen({
 }) {
   const rows = pairSteps(a, b)
   const maxMs = Math.max(1, ...rows.flatMap((r) => [r.a?.durationMs ?? 0, r.b?.durationMs ?? 0]))
-  const diverged = rows.filter((r) => r.a?.status !== r.b?.status).length
   const totalDelta = b.durationMs - a.durationMs
 
   const fmtDelta = (delta: number) => `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${fmtMs(Math.abs(delta))}`
@@ -91,10 +90,6 @@ export function CompareScreen({
         {runChip(a, 'a')}
         <span className="muted">⇄</span>
         {runChip(b, 'b')}
-        <span className="compare-summary muted">
-          {diverged > 0 ? t('diverged', diverged, rows.length) : t('statusesMatch')} · {t('totalTime')}{' '}
-          <span className={TREND_CLASS[trendOf(totalDelta, a.durationMs)] || 'muted'}>{fmtDelta(totalDelta)}</span>
-        </span>
       </div>
       <table className="history compare">
         <thead>
@@ -143,7 +138,7 @@ export function CompareScreen({
             <td>{t('total')}</td>
             <td className="mono">{fmtTotal(a.durationMs)}</td>
             <td className="mono">{fmtTotal(b.durationMs)}</td>
-            <td className={`mono${totalDelta > 500 ? ' warn' : ''}`}>{fmtDelta(totalDelta)}</td>
+            <td className={`mono ${TREND_CLASS[trendOf(totalDelta, a.durationMs)]}`}>{fmtDelta(totalDelta)}</td>
             <td />
           </tr>
         </tbody>

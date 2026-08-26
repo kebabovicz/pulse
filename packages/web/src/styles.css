@@ -1129,10 +1129,6 @@ input[type='checkbox']:checked::after {
 .run-chip.failed {
   border-color: var(--fail);
 }
-.compare-summary {
-  margin-left: auto;
-  font-size: 11px;
-}
 
 .dur-bars {
   width: 220px;

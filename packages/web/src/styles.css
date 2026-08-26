@@ -973,8 +973,11 @@ input[type='checkbox']:checked::after {
   color: var(--text-primary);
 }
 
+/* fixed layout: column widths come from the header, so collapsing a group
+   cannot re-measure them and shift the table sideways */
 .history {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 11px;
 }
@@ -1327,9 +1330,11 @@ input[type='checkbox'] {
 
 .scn-step {
   display: grid;
-  grid-template-columns: 18px minmax(150px, 230px) minmax(160px, 330px) 52px 1fr minmax(120px, auto) minmax(0, auto);
+  grid-template-columns:
+    18px var(--id-col, 230px) var(--name-col, 200px) 52px minmax(0, 1fr)
+    minmax(0, 22ch) minmax(0, 26ch);
   gap: 12px;
-  align-items: center;
+  align-items: start;
   min-height: 26px;
   padding: 4px 20px;
   font-size: 11px;
@@ -1343,6 +1348,11 @@ input[type='checkbox'] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* a long step name wraps onto a second line instead of widening the column */
+.scn-step-name {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
 .scn-step-expect {
   color: var(--text-muted);
   font-size: 10px;
@@ -1350,7 +1360,9 @@ input[type='checkbox'] {
   text-align: right;
 }
 .scn-step-captures {
-  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .scn-step-captures .sub-badge {
   margin-left: 0;

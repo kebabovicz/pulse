@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { isRequestStep } from '@pulse/shared'
+import { useEffect, useState, type CSSProperties } from 'react'
+import { isRequestStep, type Scenario } from '@pulse/shared'
 import { fetchScenarioDetail, type ScenarioDetail } from './api'
 import { copyWithBadge } from './copy'
 import { Copy } from './icons'
@@ -13,6 +13,28 @@ function CopyRaw({ text }: { text: string }) {
       <Copy size={13} />
     </button>
   )
+}
+
+/** Longest name wins, but the column is capped — longer names wrap onto a second line. */
+const NAME_CAP = 30
+
+/**
+ * Id and name columns are as wide as their longest value, so the method and the
+ * path start right after the names instead of at an arbitrary offset.
+ */
+function stepCols(steps: Scenario['steps']): CSSProperties {
+  const width = (values: string[], cap: number) =>
+    `${Math.min(values.reduce((max, v) => Math.max(max, v.length), 0) + 2, cap)}ch`
+  return {
+    '--id-col': width(
+      steps.map((s) => s.id),
+      40,
+    ),
+    '--name-col': width(
+      steps.map((s) => s.name ?? ''),
+      NAME_CAP,
+    ),
+  } as CSSProperties
 }
 
 // Scenario tab: a rendered view of the YAML file and its raw text (read-only).
@@ -69,7 +91,7 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
       ) : (
         <>
           {detail.vars.length > 0 && <ScenarioVars key={path} project={project} path={path} vars={detail.vars} />}
-          <section className="scn-section">
+          <section className="scn-section" style={stepCols(scenario.steps)}>
             <header>{t('stepsCol')}</header>
             {scenario.steps.map((step, i) => (
               <div key={step.id} className="scn-step">
@@ -77,7 +99,7 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
                 <span className="scn-step-id" title={step.id}>
                   {step.id}
                 </span>
-                <span className="muted clip" title={step.name ?? undefined}>
+                <span className="scn-step-name" title={step.name ?? undefined}>
                   {step.name ?? ''}
                 </span>
                 {isRequestStep(step) ? (

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ScenarioListItem } from '@pulse/shared'
 import { createFolder, deleteFolder, importScenario, renameScenario } from './api'
 import { Check, ChevronDown, Cross, FolderPlus, MoreVertical, Play, Spinner, Trash, Upload, Warning } from './icons'
@@ -36,6 +36,8 @@ export function ScenarioList({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState<string | null>(null)
   const [createError, setCreateError] = useState(false)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameError, setRenameError] = useState(false)
   const importRef = useRef<HTMLInputElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const slide = useSlide(navRef, scenarios, folders)
@@ -88,6 +90,24 @@ export function ScenarioList({
     } catch {
       // the row stays open and turns red: the name is taken
       setCreateError(true)
+    }
+  }
+
+  /** Renaming a folder keeps it where it is: only the last part of the path changes. */
+  const submitRenameFolder = async (path: string, typed: string) => {
+    const name = typed.trim()
+    const from = path.replace(/\/$/, '')
+    const parent = from.slice(0, from.lastIndexOf('/') + 1)
+    const to = `${parent}${name}`
+    if (!name || to === from) return setRenaming(null)
+    slide.expect(path, `${to}/`)
+    try {
+      await renameScenario(projectId, from, to)
+      setRenaming(null)
+      onChanged()
+    } catch {
+      // the row stays open and turns red: the name is taken
+      setRenameError(true)
     }
   }
 
@@ -201,6 +221,15 @@ export function ScenarioList({
         onCreateSubmit={(parent, name) => void submitNewFolder(parent, name)}
         onCreateCancel={() => setCreating(null)}
         onCreateTyping={() => setCreateError(false)}
+        renaming={renaming}
+        renameError={renameError}
+        onRenameStart={(path) => {
+          setRenameError(false)
+          setRenaming(path)
+        }}
+        onRenameSubmit={(path, name) => void submitRenameFolder(path, name)}
+        onRenameCancel={() => setRenaming(null)}
+        onRenameTyping={() => setRenameError(false)}
         onChanged={onChanged}
       />
     </nav>
@@ -283,29 +312,40 @@ interface ViewProps {
   onCreateSubmit: (parent: string, name: string) => void
   onCreateCancel: () => void
   onCreateTyping: () => void
+  /** path of the folder whose name is being typed over, or null */
+  renaming: string | null
+  renameError: boolean
+  onRenameStart: (path: string) => void
+  onRenameSubmit: (path: string, name: string) => void
+  onRenameCancel: () => void
+  onRenameTyping: () => void
   onChanged: () => void
 }
 
-/** The row that a folder is born in: an input that is already focused. */
-function NewFolderRow({
-  parent,
+/** The row a folder is named in — when it is born and when it is renamed. */
+function FolderNameRow({
+  initial,
   depth,
   error,
   onSubmit,
   onCancel,
   onTyping,
 }: {
-  parent: string
+  initial: string
   depth: number
   error: boolean
-  onSubmit: (parent: string, name: string) => void
+  onSubmit: (name: string) => void
   onCancel: () => void
   onTyping: () => void
 }) {
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(initial)
+  const inputRef = useRef<HTMLInputElement>(null)
+  // the old name comes up selected, so typing replaces it
+  useEffect(() => inputRef.current?.select(), [])
   return (
     <div className={`scn-folder scn-folder-new${error ? ' invalid' : ''}`} style={indent(depth)}>
       <input
+        ref={inputRef}
         className="scn-folder-input"
         autoFocus
         value={value}
@@ -316,10 +356,10 @@ function NewFolderRow({
           onTyping()
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onSubmit(parent, value)
+          if (e.key === 'Enter') onSubmit(value)
           if (e.key === 'Escape') onCancel()
         }}
-        onBlur={() => onSubmit(parent, value)}
+        onBlur={() => onSubmit(value)}
       />
     </div>
   )
@@ -368,9 +408,21 @@ function FolderView(props: ViewProps) {
     if (dragged) onMoveFolder(dragged, folder.path)
   }
 
+  const renaming = props.renaming === folder.path
+
   return (
     <>
-      {!isRoot && (
+      {!isRoot && renaming && (
+        <FolderNameRow
+          initial={folder.name}
+          depth={folder.depth}
+          error={props.renameError}
+          onSubmit={(name) => props.onRenameSubmit(folder.path, name)}
+          onCancel={props.onRenameCancel}
+          onTyping={props.onRenameTyping}
+        />
+      )}
+      {!isRoot && !renaming && (
         <div
           className={`scn-folder${over ? ' drop-target' : ''}${dragging ? ' dragging' : ''}`}
           style={indent(folder.depth)}
@@ -389,7 +441,11 @@ function FolderView(props: ViewProps) {
           onDrop={drop}
           onMouseLeave={() => setAsking(false)}
         >
-          <button className="scn-folder-row" onClick={() => onToggleFolder(folder.path)}>
+          <button
+            className="scn-folder-row"
+            onClick={() => onToggleFolder(folder.path)}
+            onDoubleClick={() => props.onRenameStart(folder.path)}
+          >
             <span className={`scn-folder-chevron${open ? ' open' : ''}`}>
               <ChevronDown size={11} />
             </span>
@@ -418,11 +474,11 @@ function FolderView(props: ViewProps) {
       {open && (
         <>
           {props.creating === folder.path && (
-            <NewFolderRow
-              parent={folder.path}
+            <FolderNameRow
+              initial=""
               depth={folder.depth + 1}
               error={props.createError}
-              onSubmit={props.onCreateSubmit}
+              onSubmit={(name) => props.onCreateSubmit(folder.path, name)}
               onCancel={props.onCreateCancel}
               onTyping={props.onCreateTyping}
             />

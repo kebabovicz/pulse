@@ -393,6 +393,15 @@ body.resizing {
 .scenario-item:hover {
   background-color: var(--bg-elev);
 }
+/* an outcome the reader has already opened fades back: what is left bright is
+   what still wants attention after a suite ran */
+.scenario-item::before {
+  transition: opacity 0.5s ease;
+}
+.scenario-item.seen::before {
+  opacity: 0.28;
+}
+
 /* the edge carries the outcome, so the row itself stays a list row and needs no icon */
 .scenario-item.failed::before,
 .scenario-item.invalid::before,
@@ -502,9 +511,10 @@ body.resizing {
   flex: none;
   padding-left: 5px;
 }
-/* the file name is secondary now: the scenario's own name leads the row */
+/* the file name is the dimmest thing in the row: the scenario's name leads it */
 .meta-file {
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 .scenario-row .meta.invalid {
   color: var(--warn);

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ScenarioListItem } from '@pulse/shared'
 import { createFolder, deleteFolder, importScenario, renameScenario } from './api'
 import {
+  Check,
   ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
@@ -27,10 +28,12 @@ export function ScenarioList({
   folders,
   selectedPath,
   running,
+  seen,
   onOpen,
   onRun,
   onRunFolder,
   onChanged,
+  onMarkAllSeen,
 }: {
   projectId: string
   scenarios: ScenarioListItem[]
@@ -38,10 +41,13 @@ export function ScenarioList({
   selectedPath: string | null
   /** steps finished out of steps planned, for every run going right now */
   running: Record<string, { done: number; total: number; finished?: boolean }>
+  /** run number of the last run opened for a scenario: a fresher one stays bright */
+  seen: Record<string, number>
   onOpen: (path: string) => void
   onRun: (path: string) => void
   onRunFolder: (paths: string[]) => void
   onChanged: () => void
+  onMarkAllSeen: () => void
 }) {
   const [search, setSearch] = useState('')
   const [menuPath, setMenuPath] = useState<string | null>(null)
@@ -194,6 +200,9 @@ export function ScenarioList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button className="icon-btn" title={t('markAllSeen')} onClick={onMarkAllSeen}>
+          <Check size={13} />
+        </button>
         <button
           className="icon-btn"
           title={allCollapsed ? t('expandGroups') : t('collapseGroups')}
@@ -234,6 +243,7 @@ export function ScenarioList({
         projectId={projectId}
         selectedPath={selectedPath}
         running={running}
+        seen={seen}
         menuPath={menuPath}
         onMenu={setMenuPath}
         onOpen={onOpen}
@@ -324,6 +334,7 @@ interface ViewProps {
   projectId: string
   selectedPath: string | null
   running: Record<string, { done: number; total: number; finished?: boolean }>
+  seen: Record<string, number>
   menuPath: string | null
   onMenu: (path: string | null) => void
   onOpen: (path: string) => void
@@ -546,6 +557,7 @@ function ScenarioRow({
   projectId,
   selectedPath,
   running,
+  seen,
   menuPath,
   onMenu,
   onOpen,
@@ -581,8 +593,8 @@ function ScenarioRow({
   return (
     <div
       className={`scenario-item${item.path === selectedPath ? ' selected' : ''} ${outcomeClass(item)}${
-        over ? ' drop-target' : ''
-      }${dragging ? ' dragging' : ''}`}
+        item.lastRun && (seen[item.path] ?? 0) >= item.lastRun.run ? ' seen' : ''
+      }${over ? ' drop-target' : ''}${dragging ? ' dragging' : ''}`}
       style={indent(folder.depth + 1)}
       data-node={item.path}
       draggable

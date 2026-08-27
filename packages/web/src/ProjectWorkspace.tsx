@@ -29,6 +29,16 @@ type Tab = 'run' | 'history' | 'compare' | 'scenario' | 'stats'
 
 const lastScenarioKey = (projectId: string) => `pulse.scenario.${projectId}`
 const sidebarKey = 'pulse.sidebar'
+const seenKey = (projectId: string) => `pulse.seen.${projectId}`
+
+/** Run number of the last run the reader opened, per scenario. */
+function loadSeen(projectId: string): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(seenKey(projectId)) ?? '{}') as Record<string, number>
+  } catch {
+    return {}
+  }
+}
 const SIDEBAR_MIN = 220
 const SIDEBAR_MAX = 720
 
@@ -53,6 +63,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [progress, setProgress] = useState<Record<string, { done: number; total: number; finished?: boolean }>>({})
   // guards against a stale scenario load landing after a newer one
   const openRequest = useRef(0)
+  // which scenarios the reader has already looked at since their last run
+  const [seen, setSeen] = useState<Record<string, number>>(() => loadSeen(project.id))
   // width of the sidebar, dragged by its right edge; 0 means "as wide as its content"
   const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem(sidebarKey)) || 0)
   const layoutRef = useRef<HTMLDivElement>(null)
@@ -97,11 +109,17 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
         if (event.project !== project.id) return
         if (event.type === 'scenario-changed') {
           setScenarios((prev) => {
+            // the event carries the file summary only: keep what the list knows
+            // about the scenario, or an edit would wipe its last run and colour
+            const previous = prev.find((s) => s.path === event.path)
             const rest = prev.filter((s) => s.path !== event.path)
             if (event.action === 'removed' || !event.summary) return rest
-            const ci = prev.find((s) => s.path === event.path)?.ci ?? false
-            return [...rest, { ...event.summary, ci }].sort((a, b) => a.path.localeCompare(b.path))
+            const kept = { ci: previous?.ci ?? false, lastRun: previous?.lastRun }
+            return [...rest, { ...kept, ...event.summary }].sort((a, b) => a.path.localeCompare(b.path))
           })
+          // a file that just appeared may be one moved from elsewhere, history and
+          // all — only the server knows, so ask it
+          if (event.action === 'added') void reloadScenarios()
         } else if ('run' in event) {
           // no live flag in the condition: reduce() itself ignores events of
           // other runs, so an event arriving before React re-renders is not lost
@@ -131,6 +149,23 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     [project.id],
   )
 
+  /** Marks the run the reader is looking at as seen; the row's edge fades out. */
+  const markSeen = (path: string, run: number) =>
+    setSeen((prev) => {
+      if ((prev[path] ?? 0) >= run) return prev
+      const next = { ...prev, [path]: run }
+      localStorage.setItem(seenKey(project.id), JSON.stringify(next))
+      return next
+    })
+
+  const markAllSeen = () =>
+    setSeen(() => {
+      const next: Record<string, number> = {}
+      for (const item of scenarios) if (item.lastRun) next[item.path] = item.lastRun.run
+      localStorage.setItem(seenKey(project.id), JSON.stringify(next))
+      return next
+    })
+
   const resetView = () => {
     setRunState(null)
     setInvalidFragment(null)
@@ -155,7 +190,10 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
       if (runs.length === 0) return
       const record = await fetchRun(project.id, path, runs[0].run)
       // a slower earlier request must not overwrite what the user opened since
-      if (request === openRequest.current) setRunState(fromRecord(record))
+      if (request === openRequest.current) {
+        setRunState(fromRecord(record))
+        markSeen(path, record.run)
+      }
     } finally {
       if (request === openRequest.current) setLoading(false)
     }
@@ -175,7 +213,10 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     setLoading(true)
     try {
       const record = await fetchRun(project.id, path, run)
-      if (request === openRequest.current) setRunState(fromRecord(record))
+      if (request === openRequest.current) {
+        setRunState(fromRecord(record))
+        markSeen(path, record.run)
+      }
     } finally {
       if (request === openRequest.current) setLoading(false)
     }
@@ -257,6 +298,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
         onRun={setModalPath}
         onRunFolder={(paths) => void runFolder(paths)}
         onChanged={() => void reloadScenarios()}
+        seen={seen}
+        onMarkAllSeen={markAllSeen}
       />
       {/* drag the edge to give long scenario names more room; double click gives it back */}
       <div

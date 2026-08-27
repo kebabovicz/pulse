@@ -61,13 +61,15 @@ export function RunModal({
           </button>
         </div>
         <div className="modal-section">{t('scenarioVars')}</div>
+        {/* the row is a div: a button inside a label gets the label's click as well,
+            which cancelled the eye out. The name still focuses the field, through htmlFor. */}
         {vars.map((v) => (
-          <label
-            key={v.name}
-            className={`var-row${v.secret && !(values[v.name] ?? v.default) ? ' missing-secret' : ''}`}
-          >
-            <span className="mono">{v.name}</span>
+          <div key={v.name} className={`var-row${v.secret && !(values[v.name] ?? v.default) ? ' missing-secret' : ''}`}>
+            <label className="mono" htmlFor={`var-${v.name}`}>
+              {v.name}
+            </label>
             <input
+              id={`var-${v.name}`}
               type={v.secret && !shown.has(v.name) ? 'password' : 'text'}
               value={values[v.name] ?? ''}
               placeholder={v.default}
@@ -76,6 +78,7 @@ export function RunModal({
             {v.secret ? (
               <span className="secret-controls">
                 <button
+                  type="button"
                   className="icon-btn"
                   title={shown.has(v.name) ? t('hideValue') : t('showValue')}
                   onClick={() =>
@@ -89,7 +92,7 @@ export function RunModal({
             ) : (
               <span className="muted">{values[v.name] ? t('lastUsed') : t('fromFile')}</span>
             )}
-          </label>
+          </div>
         ))}
         {vars.some((v) => v.secret && !(values[v.name] ?? v.default)) && (
           <div className="warn modal-warn">{t('emptySecretWarn')}</div>

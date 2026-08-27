@@ -8,6 +8,8 @@ import { configPath, loadConfig } from './config.js'
 import { EventBus } from './events.js'
 import { HealthMonitor } from './health.js'
 import { Auth } from './auth.js'
+import { NodeStreamableHTTPServerTransport } from '@modelcontextprotocol/node'
+import { buildMcpServer } from './mcp.js'
 import { registerRoutes, type AppContext } from './routes.js'
 import { Runner } from './runner.js'
 import { ScenarioStore } from './scenarios.js'
@@ -59,7 +61,8 @@ app.post<{ Body: { user?: string; password?: string } }>('/api/login', (req, rep
 })
 
 app.addHook('onRequest', (req, reply, done) => {
-  if (!auth.enabled || !req.url.startsWith('/api') || req.url === '/api/login') return done()
+  const guarded = req.url.startsWith('/api') || req.url.startsWith('/mcp')
+  if (!auth.enabled || !guarded || req.url === '/api/login') return done()
   // CI calls without a cookie: Authorization: Bearer <PULSE_PASSWORD>
   if (req.headers.authorization === `Bearer ${process.env.PULSE_PASSWORD}`) return done()
   if (!auth.verify(req.cookies[SESSION_COOKIE])) return reply.code(401).send({ message: 'unauthorized' })
@@ -67,6 +70,18 @@ app.addHook('onRequest', (req, reply, done) => {
 })
 
 registerRoutes(app, appCtx)
+
+/**
+ * MCP endpoint: an agent writes a scenario, runs it and reads the result without
+ * a human relaying files. Stateless — a transport per request, no sessions.
+ */
+const mcp = buildMcpServer(appCtx)
+app.all('/mcp', async (req, reply) => {
+  const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+  reply.raw.on('close', () => void transport.close())
+  await mcp.connect(transport)
+  await transport.handleRequest(req.raw, reply.raw, req.body)
+})
 await apply()
 
 const webDir = process.env.PULSE_WEB_DIR ?? fileURLToPath(new URL('../../web/dist', import.meta.url))

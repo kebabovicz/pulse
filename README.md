@@ -83,6 +83,47 @@ The full scenario format — checks, captures, retries, cookies, cleanup — is 
 [SPEC.md](SPEC.md). Configuration, storage layout and the CI endpoint are in
 [spec/config.md](spec/config.md).
 
+## Writing scenarios with an agent (MCP)
+
+Pulse is an MCP server, so a coding agent can learn the format, write a
+scenario, run it and read what failed — without a human passing files around.
+Point the agent at the `/mcp` endpoint:
+
+```json
+{
+  "mcpServers": {
+    "pulse": {
+      "type": "http",
+      "url": "http://localhost:7100/mcp"
+    }
+  }
+}
+```
+
+On a stand protected by a password, add the same credentials the UI uses:
+
+```json
+{ "headers": { "Authorization": "Bearer <PULSE_PASSWORD>" } }
+```
+
+The agent gets these tools:
+
+| tool | what it does |
+| --- | --- |
+| `spec` | the scenario format and its JSON Schema |
+| `projects` | projects, their hosts and scenario folders |
+| `scenarios` | what is already written, and how it last ran |
+| `read` | the YAML of one scenario |
+| `validate` | check a scenario against the schema without saving |
+| `write` | save a scenario — only if it passes the schema |
+| `run` | run it and get the outcome per step |
+| `result` | the outcome of an earlier run |
+| `step` | full request and response of one step |
+
+Run summaries are deliberately compact — bodies are cut and only failed checks
+are spelled out, so a debugging loop does not burn the agent's context. The full
+body of a step comes from `step` when the summary is not enough.
+
 ## CI integration
 
 Mark scenarios as "Run on deploy" in the UI, then call from your pipeline after

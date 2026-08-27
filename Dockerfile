@@ -18,6 +18,8 @@ COPY packages/server/package.json packages/server/
 COPY packages/web/package.json packages/web/
 RUN npm ci --omit=dev
 COPY packages/shared/scenario.schema.json packages/shared/
+# the MCP `spec` tool serves this file to agents
+COPY SPEC.md ./
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/server/dist packages/server/dist
 COPY --from=build /app/packages/web/dist ./web

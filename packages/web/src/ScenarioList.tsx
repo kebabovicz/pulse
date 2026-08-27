@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import type { ScenarioListItem } from '@pulse/shared'
 import { importScenario } from './api'
-import { Check, Cross, MoreVertical, Play, Spinner, Upload, Warning } from './icons'
+import { Check, ChevronDown, Cross, MoreVertical, Play, Spinner, Upload, Warning } from './icons'
 import { dateLocale, t } from './i18n'
 import { fileLabel } from './runState'
 import { ScenarioMenu } from './ScenarioMenu'
+import { buildTree, type TreeFolder } from './scenarioTree'
 import { useClipped } from './ui/useClipped'
 
 /** Sidebar: scenario search, import and the grouped scenario list. */
@@ -15,6 +16,7 @@ export function ScenarioList({
   runningPath,
   onOpen,
   onRun,
+  onRunFolder,
   onChanged,
 }: {
   projectId: string
@@ -23,24 +25,29 @@ export function ScenarioList({
   runningPath: string | null
   onOpen: (path: string) => void
   onRun: (path: string) => void
+  onRunFolder: (paths: string[]) => void
   onChanged: () => void
 }) {
   const [search, setSearch] = useState('')
   const [menuPath, setMenuPath] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const importRef = useRef<HTMLInputElement>(null)
 
-  const groups = useMemo(() => {
+  const tree = useMemo(() => {
     const query = search.trim().toLowerCase()
     const visible = query
       ? scenarios.filter((s) => s.path.toLowerCase().includes(query) || s.name.toLowerCase().includes(query))
       : scenarios
-    const byDir = new Map<string, ScenarioListItem[]>()
-    for (const s of visible) {
-      const dir = s.path.includes('/') ? s.path.slice(0, s.path.lastIndexOf('/') + 1) : ''
-      byDir.set(dir, [...(byDir.get(dir) ?? []), s])
-    }
-    return [...byDir.entries()].sort(([a], [b]) => a.localeCompare(b))
+    return buildTree(visible)
   }, [scenarios, search])
+
+  const toggleFolder = (path: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
 
   const importFiles = async (files: File[]) => {
     const failures: string[] = []
@@ -82,45 +89,121 @@ export function ScenarioList({
           }}
         />
       </div>
-      {groups.map(([dir, items]) => (
-        <div key={dir}>
-          {dir && <div className="group">{dir}</div>}
-          {items.map((item) => (
-            <div
-              key={item.path}
-              className={`scenario-item${item.path === selectedPath ? ' selected' : ''}${
-                !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
-              }`}
-            >
-              <button className="scenario-row" onClick={() => onOpen(item.path)}>
-                <span className="scenario-title">
-                  <ScenarioName label={fileLabel(item.path)} />
-                  <ScenarioStatus item={item} running={item.path === runningPath} />
-                </span>
-                <ScenarioMeta item={item} />
-              </button>
-              <button className="row-action" onClick={() => setMenuPath(menuPath === item.path ? null : item.path)}>
-                <MoreVertical size={13} />
-              </button>
-              {item.valid && (
-                <button className="row-action" title={t('run')} onClick={() => onRun(item.path)}>
-                  <Play size={13} />
-                </button>
-              )}
-              {menuPath === item.path && (
-                <ScenarioMenu
-                  project={projectId}
-                  path={item.path}
-                  ci={item.ci}
-                  onChanged={onChanged}
-                  onClose={() => setMenuPath(null)}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      ))}
+      <FolderView
+        folder={tree}
+        collapsed={collapsed}
+        onToggleFolder={toggleFolder}
+        projectId={projectId}
+        selectedPath={selectedPath}
+        runningPath={runningPath}
+        menuPath={menuPath}
+        onMenu={setMenuPath}
+        onOpen={onOpen}
+        onRun={onRun}
+        onRunFolder={onRunFolder}
+        onChanged={onChanged}
+      />
     </nav>
+  )
+}
+
+interface ViewProps {
+  folder: TreeFolder
+  collapsed: Set<string>
+  onToggleFolder: (path: string) => void
+  projectId: string
+  selectedPath: string | null
+  runningPath: string | null
+  menuPath: string | null
+  onMenu: (path: string | null) => void
+  onOpen: (path: string) => void
+  onRun: (path: string) => void
+  onRunFolder: (paths: string[]) => void
+  onChanged: () => void
+}
+
+/** A folder and everything under it; folders nest, so the indent carries the depth. */
+function FolderView(props: ViewProps) {
+  const { folder, collapsed, onToggleFolder, onRunFolder } = props
+  const open = !collapsed.has(folder.path)
+  const isRoot = folder.path === ''
+
+  return (
+    <>
+      {!isRoot && (
+        <div className="scn-folder" style={{ paddingLeft: 8 + folder.depth * 12 }}>
+          <button className="scn-folder-row" onClick={() => onToggleFolder(folder.path)}>
+            <span className={`scn-folder-chevron${open ? ' open' : ''}`}>
+              <ChevronDown size={11} />
+            </span>
+            <span className="scn-folder-name">{folder.name}/</span>
+            <span className="muted scn-folder-count">{folder.runnable.length}</span>
+          </button>
+          {folder.runnable.length > 0 && (
+            <button className="row-action" title={t('runFolder')} onClick={() => onRunFolder(folder.runnable)}>
+              <Play size={12} />
+            </button>
+          )}
+        </div>
+      )}
+      {open && (
+        <>
+          {folder.folders.map((child) => (
+            <FolderView key={child.path} {...props} folder={child} />
+          ))}
+          {folder.scenarios.map((item) => (
+            <ScenarioRow key={item.path} {...props} item={item} />
+          ))}
+        </>
+      )}
+    </>
+  )
+}
+
+function ScenarioRow({
+  item,
+  folder,
+  projectId,
+  selectedPath,
+  runningPath,
+  menuPath,
+  onMenu,
+  onOpen,
+  onRun,
+  onChanged,
+}: ViewProps & { item: ScenarioListItem }) {
+  return (
+    <div
+      className={`scenario-item${item.path === selectedPath ? ' selected' : ''}${
+        !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
+      }`}
+      style={{ paddingLeft: folder.depth >= 0 ? 8 + (folder.depth + 1) * 12 : 0 }}
+    >
+      <button className="scenario-row" onClick={() => onOpen(item.path)}>
+        <span className="scenario-title">
+          <ScenarioName label={fileLabel(item.path)} />
+          <ScenarioStatus item={item} running={item.path === runningPath} />
+        </span>
+        <ScenarioMeta item={item} />
+      </button>
+      <button className="row-action" onClick={() => onMenu(menuPath === item.path ? null : item.path)}>
+        <MoreVertical size={13} />
+      </button>
+      {item.valid && (
+        <button className="row-action" title={t('run')} onClick={() => onRun(item.path)}>
+          <Play size={13} />
+        </button>
+      )}
+      {menuPath === item.path && (
+        <ScenarioMenu
+          project={projectId}
+          path={item.path}
+          ci={item.ci}
+          onChanged={onChanged}
+          onClose={() => onMenu(null)}
+        />
+      )}
+    </div>
   )
 }
 

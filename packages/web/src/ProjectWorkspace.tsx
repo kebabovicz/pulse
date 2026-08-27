@@ -116,6 +116,39 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     setTab('compare')
   }
 
+  /** Resolves when the current run of this project reports it finished. */
+  const waitForRunEnd = () =>
+    new Promise<void>((resolve) => {
+      const off = subscribeToEvents((event) => {
+        if (event.project !== project.id || event.type !== 'run-finished') return
+        off()
+        resolve()
+      })
+    })
+
+  /**
+   * A folder runs its scenarios one after another — the runner takes one run per
+   * project at a time, and a queue here keeps the order the sidebar shows.
+   */
+  const runFolder = async (paths: string[]) => {
+    for (const path of paths) {
+      setSelectedPath(path)
+      setTab('run')
+      setLive(true)
+      setRunState(pendingRun(path))
+      try {
+        await startRun(project.id, path, {})
+      } catch (e) {
+        setLive(false)
+        setRunState(null)
+        return alert((e as Error).message)
+      }
+      // the run screen follows along; wait for this one to end before the next
+      await waitForRunEnd()
+    }
+    setLive(false)
+  }
+
   const launch = async (path: string, vars: Record<string, string>) => {
     setModalPath(null)
     setSelectedPath(path)
@@ -159,6 +192,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
         runningPath={live ? selectedPath : null}
         onOpen={(path) => void openScenario(path)}
         onRun={setModalPath}
+        onRunFolder={(paths) => void runFolder(paths)}
         onChanged={() => void reloadScenarios()}
       />
       <main className="main">

@@ -165,9 +165,10 @@ body {
 }
 
 /* ── layout ── */
+/* the sidebar takes what the deepest folder needs, up to a quarter of the window */
 .layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: minmax(260px, max-content) minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -175,7 +176,78 @@ body {
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
   overflow-y: auto;
+  overflow-x: hidden;
+  max-width: 25vw;
+  min-width: 260px;
   padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+/* a hairline on hover instead of a permanent grey rail */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+.sidebar:hover::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
+
+/* ── folders in the sidebar ── */
+.scn-folder {
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+.scn-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font: 400 10px var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.scn-folder-row:hover {
+  color: var(--text-secondary);
+}
+.scn-folder-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 11px;
+  height: 11px;
+  line-height: 0;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: transform 0.12s ease;
+}
+.scn-folder-chevron.open {
+  transform: rotate(0deg);
+}
+.scn-folder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scn-folder-count {
+  font-size: 10px;
+}
+.scn-folder .row-action {
+  visibility: hidden;
+}
+.scn-folder:hover .row-action {
+  visibility: visible;
 }
 
 .sidebar .group {

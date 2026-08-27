@@ -39,14 +39,14 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('run')
   const [runState, setRunState] = useState<RunState | null>(null)
-  const [live, setLive] = useState(false)
   const [historyGroups, setHistoryGroups] = useState<RunsGroup[]>([])
-  const [historyFilter, setHistoryFilter] = useState<string | null>(null)
   const [compare, setCompare] = useState<[RunRecord, RunRecord] | null>(null)
   const [invalidFragment, setInvalidFragment] = useState<FileFragment | null>(null)
   const [modalPath, setModalPath] = useState<string | null>(null)
   // a run is on its way: the panel waits instead of claiming the scenario never ran
   const [loading, setLoading] = useState(false)
+  // steps finished out of the steps planned, for the bar under the sidebar row
+  const [progress, setProgress] = useState<{ path: string; done: number; total: number } | null>(null)
   // guards against a stale scenario load landing after a newer one
   const openRequest = useRef(0)
 
@@ -71,24 +71,29 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
           // no live flag in the condition: reduce() itself ignores events of
           // other runs, so an event arriving before React re-renders is not lost
           setRunState((prev) => (prev ? reduce(prev, event) : prev))
-          if (event.type === 'run-finished') setLive(false)
+          // the sidebar follows every run, including the ones nobody is watching
+          if (event.type === 'run-started') setProgress({ path: event.scenario, done: 0, total: event.steps.length })
+          if (event.type === 'step-finished')
+            setProgress((p) => (p && p.path === event.scenario ? { ...p, done: p.done + 1 } : p))
+          if (event.type === 'run-finished') {
+            setProgress(null)
+            void reloadScenarios() // the row picks up the outcome of the run that just ended
+          }
         }
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one subscription per project
     [project.id],
   )
 
   const resetView = () => {
-    setLive(false)
     setRunState(null)
     setInvalidFragment(null)
   }
 
-  // clicking a scenario opens its latest run on the Run tab (req 7), except on
-  // the Scenario tab: reading one file after another must not throw the reader
-  // back to Run every click. The other tabs show data of a different scenario.
+  // clicking a scenario loads its latest run but leaves the tab alone: only the
+  // Run tab follows the selection, the others keep showing what they showed
   const openScenario = async (path: string, list: ScenarioListItem[] = scenarios) => {
     setSelectedPath(path)
-    setTab((prev) => (prev === 'scenario' ? prev : 'run'))
     resetView()
     localStorage.setItem(lastScenarioKey(project.id), path)
     const request = ++openRequest.current
@@ -110,11 +115,9 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     }
   }
 
-  // the History tab shows the whole project history; the filter chip is applied
-  // automatically when arriving with a scenario selected (req 41)
-  const openHistory = async (filterPath: string | null) => {
+  // the History tab shows the whole project history, every scenario at once (req 41)
+  const openHistory = async () => {
     setTab('history')
-    setHistoryFilter(filterPath)
     setHistoryGroups((await fetchAllRuns(project.id)).groups)
   }
 
@@ -155,38 +158,27 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
    */
   const runFolder = async (paths: string[]) => {
     for (const path of paths) {
-      setSelectedPath(path)
-      setTab('run')
-      setLive(true)
-      openRequest.current++ // a pending scenario load must not overwrite this run
-      setLoading(false)
-      setRunState(pendingRun(path))
       try {
         await startRun(project.id, path, {})
       } catch (e) {
-        setLive(false)
-        setRunState(null)
         return notify((e as Error).message)
       }
-      // the run screen follows along; wait for this one to end before the next
+      // the screen stays where the reader left it; the sidebar row fills instead
       await waitForRunEnd()
     }
-    setLive(false)
   }
 
   const launch = async (path: string, vars: Record<string, string>) => {
     setModalPath(null)
     setSelectedPath(path)
     setTab('run')
-    // the placeholder and the live flag go up BEFORE the request: run events can outrun the POST response
-    setLive(true)
+    // the placeholder goes up BEFORE the request: run events can outrun the POST response
     openRequest.current++ // a pending scenario load must not overwrite this run
     setLoading(false)
     setRunState(pendingRun(path))
     try {
       await startRun(project.id, path, vars)
     } catch (e) {
-      setLive(false)
       setRunState(null)
       notify((e as Error).message)
     }
@@ -206,7 +198,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const clearHistory = async (scenario: string | null) => {
     if (!scenario || scenario === selectedPath) setRunState(null)
     await clearRuns(project.id, scenario ?? undefined).catch((e: Error) => notify(e.message))
-    await Promise.all([openHistory(historyFilter), reloadScenarios()])
+    await Promise.all([openHistory(), reloadScenarios()])
   }
 
   const selected = scenarios.find((s) => s.path === selectedPath)
@@ -218,7 +210,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
         scenarios={scenarios}
         folders={folders}
         selectedPath={selectedPath}
-        runningPath={live ? selectedPath : null}
+        runningPath={progress?.path ?? null}
+        runProgress={progress ? progress.done / Math.max(progress.total, 1) : 0}
         onOpen={(path) => void openScenario(path)}
         onRun={setModalPath}
         onRunFolder={(paths) => void runFolder(paths)}
@@ -227,11 +220,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
       <main className="main">
         <div className="tabs">
           <TabButton active={tab === 'run'} onClick={() => setTab('run')} label={t('tabRun')} />
-          <TabButton
-            active={tab === 'history'}
-            onClick={() => void openHistory(selectedPath)}
-            label={t('tabHistory')}
-          />
+          <TabButton active={tab === 'history'} onClick={() => void openHistory()} label={t('tabHistory')} />
           <TabButton
             active={tab === 'compare'}
             disabled={!compare}
@@ -256,14 +245,12 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
             <CompareScreen
               a={compare[0]}
               b={compare[1]}
-              onClose={() => void openHistory(selectedPath)}
+              onClose={() => void openHistory()}
               onOpen={(run) => selectedPath && void openRun(selectedPath, run)}
             />
           ) : tab === 'history' ? (
             <HistoryScreen
               groups={historyGroups}
-              filter={historyFilter}
-              onFilter={setHistoryFilter}
               onOpen={(scenario, run) => void openRun(scenario, run)}
               onCompare={(scenario, a, b) => void openCompare(scenario, a, b)}
               onClear={(scenario) => void clearHistory(scenario)}

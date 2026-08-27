@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ScenarioListItem } from '@pulse/shared'
 import { createFolder, deleteFolder, importScenario, renameScenario } from './api'
-import { Check, ChevronDown, Cross, FolderPlus, MoreVertical, Play, Spinner, Trash, Upload, Warning } from './icons'
+import { ChevronDown, FolderPlus, MoreVertical, Play, Spinner, Trash, Upload, Warning } from './icons'
 import { dateLocale, t } from './i18n'
 import { fileLabel } from './runState'
 import { ScenarioMenu } from './ScenarioMenu'
@@ -16,6 +16,7 @@ export function ScenarioList({
   folders,
   selectedPath,
   runningPath,
+  runProgress,
   onOpen,
   onRun,
   onRunFolder,
@@ -26,6 +27,8 @@ export function ScenarioList({
   folders: string[]
   selectedPath: string | null
   runningPath: string | null
+  /** share of the running scenario's steps that finished, 0 when nothing runs */
+  runProgress: number
   onOpen: (path: string) => void
   onRun: (path: string) => void
   onRunFolder: (paths: string[]) => void
@@ -201,6 +204,7 @@ export function ScenarioList({
         projectId={projectId}
         selectedPath={selectedPath}
         runningPath={runningPath}
+        runProgress={runProgress}
         menuPath={menuPath}
         onMenu={setMenuPath}
         onOpen={onOpen}
@@ -291,6 +295,7 @@ interface ViewProps {
   projectId: string
   selectedPath: string | null
   runningPath: string | null
+  runProgress: number
   menuPath: string | null
   onMenu: (path: string | null) => void
   onOpen: (path: string) => void
@@ -513,6 +518,7 @@ function ScenarioRow({
   projectId,
   selectedPath,
   runningPath,
+  runProgress,
   menuPath,
   onMenu,
   onOpen,
@@ -545,9 +551,9 @@ function ScenarioRow({
 
   return (
     <div
-      className={`scenario-item${item.path === selectedPath ? ' selected' : ''}${
-        !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
-      }${over ? ' drop-target' : ''}${dragging ? ' dragging' : ''}`}
+      className={`scenario-item${item.path === selectedPath ? ' selected' : ''} ${outcomeClass(item)}${
+        over ? ' drop-target' : ''
+      }${dragging ? ' dragging' : ''}`}
       style={indent(folder.depth + 1)}
       data-node={item.path}
       draggable
@@ -563,6 +569,9 @@ function ScenarioRow({
       }}
       onDrop={drop}
     >
+      {item.path === runningPath && (
+        <span className="scn-progress" style={{ width: `${Math.round(runProgress * 100)}%` }} />
+      )}
       <button className="scenario-row" onClick={() => onOpen(item.path)}>
         <span className="scenario-title">
           <ScenarioName label={fileLabel(item.path)} />
@@ -601,6 +610,20 @@ function ScenarioName({ label }: { label: string }) {
   )
 }
 
+/**
+ * The colour of the row's left edge is the outcome: green passed, red failed,
+ * amber a run that took noticeably longer than this scenario usually does (or a
+ * file that does not parse — it has no runs to colour).
+ */
+function outcomeClass(item: ScenarioListItem): string {
+  if (!item.valid) return 'invalid'
+  if (!item.lastRun) return ''
+  if (item.lastRun.status === 'failed') return 'failed'
+  if (item.lastRun.slow) return 'slow'
+  if (item.lastRun.status === 'passed') return 'passed'
+  return ''
+}
+
 function ScenarioStatus({ item, running }: { item: ScenarioListItem; running: boolean }) {
   if (running)
     return (
@@ -612,19 +635,6 @@ function ScenarioStatus({ item, running }: { item: ScenarioListItem; running: bo
     return (
       <span className="warn">
         <Warning size={12} />
-      </span>
-    )
-  if (!item.lastRun) return null
-  if (item.lastRun.status === 'passed')
-    return (
-      <span className="ok">
-        <Check size={12} />
-      </span>
-    )
-  if (item.lastRun.status === 'failed')
-    return (
-      <span className="bad">
-        <Cross size={12} />
       </span>
     )
   return null

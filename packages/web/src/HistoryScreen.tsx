@@ -43,15 +43,11 @@ function Outcome({ run }: { run: RunIndexEntry }) {
 // History tab: every run of the project, grouped by scenario (req 41, 46).
 export function HistoryScreen({
   groups,
-  filter,
-  onFilter,
   onOpen,
   onCompare,
   onClear,
 }: {
   groups: RunsGroup[]
-  filter: string | null // the "this scenario only" chip
-  onFilter: (scenario: string | null) => void
   onOpen: (scenario: string, run: number) => void
   onCompare: (scenario: string, a: number, b: number) => void
   onClear: (scenario: string | null) => void
@@ -63,9 +59,8 @@ export function HistoryScreen({
   // only runs of the same scenario can be compared
   const [selected, setSelected] = useState<{ scenario: string; runs: number[] }>({ scenario: '', runs: [] })
 
-  const visible = groups.filter(
-    (g) => (!filter || g.scenario === filter) && (!query || g.scenario.toLowerCase().includes(query.toLowerCase())),
-  )
+  // the whole project by default; the search box narrows it down to a scenario
+  const visible = groups.filter((g) => !query || g.scenario.toLowerCase().includes(query.toLowerCase()))
   const totalRuns = visible.reduce((n, g) => n + g.runs.length, 0)
 
   const toggleRun = (scenario: string, run: number) =>
@@ -87,14 +82,6 @@ export function HistoryScreen({
     <div className="run-screen">
       <div className="history-toolbar">
         <span className="history-summary">{t('historySummary', totalRuns, visible.length)}</span>
-        {filter && (
-          <span className="chip" title={t('filterChipHint')}>
-            {filter}
-            <button title={t('clearFilter')} onClick={() => onFilter(null)}>
-              ✕
-            </button>
-          </span>
-        )}
         <span className="spacer" />
         <span className="filter-wrap">
           <input

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import type { ProjectView, RunsGroup, ScenarioListItem } from '@pulse/shared'
+import type { ProjectView, RunIndexEntry, RunsGroup, ScenarioListItem } from '@pulse/shared'
 import fs from 'node:fs'
 import path from 'node:path'
 import { configPath, type AppConfig, type Project } from './config.js'
@@ -156,7 +156,8 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       if (!loaded.scenario) return reply.code(400).send({ message: 'scenario is invalid' })
 
       const values = req.body.values
-      if (typeof values !== 'object' || values === null) return reply.code(400).send({ message: 'values object expected' })
+      if (typeof values !== 'object' || values === null)
+        return reply.code(400).send({ message: 'values object expected' })
       const declared = new Set(Object.keys(loaded.scenario.vars ?? {}))
       const unknown = Object.keys(values).filter((name) => !declared.has(name))
       if (unknown.length > 0) return reply.code(400).send({ message: `unknown variables: ${unknown.join(', ')}` })
@@ -240,7 +241,8 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!list) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     const ciSet = new Set(ctx.state.getCiScenarios(req.params.id))
     const scenarios: ScenarioListItem[] = list.map((summary) => {
-      const last = ctx.runs.readIndex(req.params.id, RunStore.scenarioKey(summary.path)).at(-1)
+      const index = ctx.runs.readIndex(req.params.id, RunStore.scenarioKey(summary.path))
+      const last = index.at(-1)
       return {
         ...summary,
         ci: ciSet.has(summary.path),
@@ -251,6 +253,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
             durationMs: last.durationMs,
             startedAt: last.startedAt,
             failedStep: last.failedStep,
+            ...(ranSlow(index) && { slow: true }),
           },
         }),
       }
@@ -445,4 +448,23 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       return record
     },
   )
+}
+
+/**
+ * The last run against what this scenario usually costs: half again the median
+ * of the runs before it. A handful of runs is needed before "usually" means
+ * anything, and a small absolute gap is noise on a fast scenario.
+ */
+const SLOW_FACTOR = 1.5
+const SLOW_FLOOR_MS = 200
+
+function ranSlow(index: RunIndexEntry[]): boolean {
+  const last = index.at(-1)
+  if (!last || last.status !== 'passed') return false
+  const before = index.slice(0, -1).filter((e) => e.status === 'passed')
+  if (before.length < 3) return false
+  const sorted = before.map((e) => e.durationMs).sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+  return last.durationMs > median * SLOW_FACTOR && last.durationMs - median >= SLOW_FLOOR_MS
 }

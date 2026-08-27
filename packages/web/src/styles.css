@@ -360,19 +360,41 @@ body {
 .scenario-item:hover {
   background-color: var(--bg-elev);
 }
-/* a rule on the edge carries the alarm: the row itself stays a list row */
+/* the edge carries the outcome, so the row itself stays a list row and needs no icon */
 .scenario-item.failed::before,
-.scenario-item.invalid::before {
+.scenario-item.invalid::before,
+.scenario-item.passed::before,
+.scenario-item.slow::before {
   content: '';
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
+  z-index: 1;
 }
 .scenario-item.failed::before {
   background: var(--fail);
 }
-.scenario-item.invalid::before {
+.scenario-item.invalid::before,
+.scenario-item.slow::before {
   background: var(--warn);
+}
+.scenario-item.passed::before {
+  background: var(--ok);
+}
+
+/* a running scenario fills from the left: the progress is visible without opening it */
+.scn-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  pointer-events: none;
+  transition: width 0.2s ease;
+}
+/* the fill is a background, so the row's own content keeps its place above it */
+.scenario-item > .scenario-row,
+.scenario-item > .row-action {
+  position: relative;
+  z-index: 1;
 }
 
 /* a calm scenario is quiet; the ones that need attention come forward */

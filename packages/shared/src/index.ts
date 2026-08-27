@@ -128,7 +128,9 @@ export interface ScenarioSummary {
 
 /** A scenario list row: file summary plus the outcome of the last run. */
 export interface ScenarioListItem extends ScenarioSummary {
-  lastRun?: Pick<RunIndexEntry, 'run' | 'status' | 'durationMs' | 'startedAt' | 'failedStep'>
+  lastRun?: Pick<RunIndexEntry, 'run' | 'status' | 'durationMs' | 'startedAt' | 'failedStep'> & {
+    slow?: boolean // took noticeably longer than this scenario usually takes
+  }
   ci: boolean // part of the deploy suite (executed by /ci/run)
 }
 

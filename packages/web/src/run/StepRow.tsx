@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Check, ChevronDown, Circle, Cross, Minus, Pause, Spinner } from '../icons'
 import { t } from '../i18n'
-import { fmtMs, type StepView } from '../runState'
+import { fmtMs, relativeWhen, type StepView } from '../runState'
 import { hasDetails } from './labels'
 import { useClipped } from '../ui/useClipped'
 
@@ -24,6 +24,13 @@ function StepName({ label }: { label: string }) {
 }
 
 /** One row of the step list: status, method, path, code and duration. */
+/** Where a cached step's values came from, for the tooltip and the detail line. */
+export function cachedHint(result: { cachedFrom?: { scenario: string; run: number; at: string } }): string {
+  const from = result.cachedFrom
+  if (!from) return t('cached')
+  return t('cachedFrom', from.scenario.replace(/\.ya?ml$/, ''), from.run, relativeWhen(from.at))
+}
+
 export function StepRow({
   step,
   index,
@@ -63,7 +70,13 @@ export function StepRow({
       <span
         className={`step-code${r?.response && !r.checks?.find((c) => c.kind === 'status' && !c.passed) ? ' ok' : r?.response ? ' bad' : ''}`}
       >
-        {r?.error ? r.error.message : r?.cached ? t('cached') : (r?.response?.status ?? '')}
+        {r?.error ? (
+          r.error.message
+        ) : r?.cached ? (
+          <span title={cachedHint(r)}>{t('cached')}</span>
+        ) : (
+          (r?.response?.status ?? '')
+        )}
       </span>
       <span className="step-duration">{r?.durationMs != null ? fmtMs(r.durationMs) : ''}</span>
       <span className="step-chevron" style={{ transform: open ? 'rotate(180deg)' : 'none' }}>

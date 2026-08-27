@@ -320,17 +320,26 @@ export class Runner {
 
   /** A step whose captures are still fresh: nothing is sent, the values come back as they were. */
   private readCache(ctx: RunCtx, step: RequestStep): StepResult | undefined {
-    const values = this.cache.get(this.cacheKey(ctx, step))
-    if (!values) return undefined
+    const hit = this.cache.get(this.cacheKey(ctx, step))
+    if (!hit) return undefined
     const startedAt = new Date().toISOString()
     this.publish(ctx, { type: 'step-started', stepId: step.id, attempt: 1 })
     const captures: CaptureResult[] = []
-    for (const [name, entry] of Object.entries(values)) {
+    for (const [name, entry] of Object.entries(hit.values)) {
       ctx.space.set(name, { value: entry.value, fromStep: step.id, secret: entry.secret })
       ctx.fromCache.add(name)
       captures.push(entry.capture)
     }
-    return { stepId: step.id, status: 'passed', cached: true, startedAt, durationMs: 0, attempts: 1, captures }
+    return {
+      stepId: step.id,
+      status: 'passed',
+      cached: true,
+      cachedFrom: hit.from,
+      startedAt,
+      durationMs: 0,
+      attempts: 1,
+      captures,
+    }
   }
 
   private async attempt(
@@ -551,7 +560,11 @@ export class Runner {
         },
       ]),
     )
-    this.cache.set(this.cacheKey(ctx, step), values, parseDuration(step.cache!))
+    this.cache.set(this.cacheKey(ctx, step), values, parseDuration(step.cache!), {
+      scenario: ctx.scenario,
+      run: ctx.run,
+      at: new Date().toISOString(),
+    })
   }
 
   private publish(ctx: RunCtx, event: Record<string, unknown> & { type: string }): void {

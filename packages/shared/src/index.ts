@@ -262,6 +262,8 @@ export interface StepResult {
   stepId: string
   status: StepStatus
   cached?: boolean // served from the shared cache: nothing was sent
+  /** which run put the cached values there, so the reader can trace them back */
+  cachedFrom?: { scenario: string; run: number; at: string }
   startedAt?: string
   durationMs?: number
   attempts?: number

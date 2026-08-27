@@ -20,6 +20,14 @@ function Svg({ size = 14, children, ...rest }: SVGProps<SVGSVGElement> & { size?
   )
 }
 
+/** A tick with the edge mark beside it: "these outcomes have been read". */
+export const CheckEdge = (p: { size?: number }) => (
+  <Svg {...p}>
+    <path d="M5 5v14" />
+    <path d="M20 8 12.5 16.5 9 13" />
+  </Svg>
+)
+
 export const Check = (p: { size?: number }) => (
   <Svg {...p}>
     <path d="M20 6 9 17l-5-5" />

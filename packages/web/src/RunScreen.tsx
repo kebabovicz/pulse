@@ -104,11 +104,10 @@ export function RunScreen({
   return (
     <div className="run-screen">
       <div className="run-header">
-        <h1>{fileLabel(state.scenario)}</h1>
+        {/* the scenario's own name leads, the file it lives in follows it */}
+        <h1>{state.scenarioName || fileLabel(state.scenario)}</h1>
         <span className="run-number">#{state.run}</span>
-        {state.scenarioName && state.scenarioName !== fileLabel(state.scenario) && (
-          <span className="muted">{state.scenarioName}</span>
-        )}
+        <span className="muted run-file">{state.scenario.replace(/\.ya?ml$/, '')}</span>
         <div className="run-actions">
           <button
             className="btn"

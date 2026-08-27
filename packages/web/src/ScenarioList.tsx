@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { FixtureItem, ScenarioListItem } from '@pulse/shared'
 import { createFolder, deleteFolder, importScenario, renameScenario, uploadFixture } from './api'
 import {
-  Check,
+  CheckEdge,
   ChevronDown,
   Paperclip,
   ChevronsDownUp,
@@ -211,7 +211,7 @@ export function ScenarioList({
           onChange={(e) => setSearch(e.target.value)}
         />
         <button className="icon-btn" title={t('markAllSeen')} onClick={onMarkAllSeen}>
-          <Check size={13} />
+          <CheckEdge size={14} />
         </button>
         <button
           className="icon-btn"

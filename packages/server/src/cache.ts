@@ -10,6 +10,14 @@ interface CachedValue {
 interface Entry {
   expiresAt: number
   values: Record<string, CachedValue>
+  /** the run that filled this entry: a cached value must be traceable to its source */
+  from: CacheOrigin
+}
+
+export interface CacheOrigin {
+  scenario: string
+  run: number
+  at: string
 }
 
 /**
@@ -33,18 +41,18 @@ export class SharedCache {
     return `${projectId}|${baseUrl}|${digest}`
   }
 
-  get(key: string): Record<string, CachedValue> | undefined {
+  get(key: string): { values: Record<string, CachedValue>; from: CacheOrigin } | undefined {
     const entry = this.entries.get(key)
     if (!entry) return undefined
     if (entry.expiresAt <= Date.now()) {
       this.entries.delete(key)
       return undefined
     }
-    return entry.values
+    return { values: entry.values, from: entry.from }
   }
 
-  set(key: string, values: Record<string, CachedValue>, ttlMs: number): void {
-    this.entries.set(key, { expiresAt: Date.now() + ttlMs, values })
+  set(key: string, values: Record<string, CachedValue>, ttlMs: number, from: CacheOrigin): void {
+    this.entries.set(key, { expiresAt: Date.now() + ttlMs, values, from })
   }
 
   /** Drops every entry of one project and host — used when a cached token is refused. */

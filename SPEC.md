@@ -241,8 +241,9 @@ follow:
 - The entry belongs to **this request on this host**: the method, the URL, the
   body as it was actually sent and the captures asked for. Two accounts, two
   entries; an edited request starts its own.
-- A cached step sends nothing. The run screen marks it `cached`, its checks do
-  not run, and the captured values arrive as they were.
+- A cached step sends nothing. The run screen marks it `cached` and says which
+  run filled the entry and when, its checks do not run, and the captured values
+  arrive as they were.
 - If a request that carries a cached value comes back 401 or 403 where the
   scenario did not expect it, the entry is dropped, so the next run signs in
   again. The run that hit the stale token still fails — give the step a `retry`

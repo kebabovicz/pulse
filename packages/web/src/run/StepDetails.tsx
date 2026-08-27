@@ -9,6 +9,7 @@ import { ClipValue } from '../ui/ClipValue'
 import { colWidth, cols } from '../ui/columns'
 import { Seg, useViewMode } from '../ui/Seg'
 import { checkLabel } from './labels'
+import { cachedHint } from './StepRow'
 
 const quote = (value: string): string => value.replaceAll("'", String.raw`'\''`)
 
@@ -162,6 +163,15 @@ export function StepDetails({
               <ClipValue className={`mono check-value${c.passed ? '' : ' bad'}`} text={c.actual ?? '—'} />
             </div>
           ))}
+        </section>
+      )}
+      {r.cached && (
+        <section>
+          <header>{t('cachedTitle')}</header>
+          <div className="kv-row">
+            <span className="kv-origin">cache</span>
+            <span className="mono">{cachedHint(r)}</span>
+          </div>
         </section>
       )}
       {r.request && (

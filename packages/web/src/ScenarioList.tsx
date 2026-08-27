@@ -276,6 +276,12 @@ function FolderView(props: ViewProps) {
     setOver(true)
   }
 
+  // moving between child elements fires dragleave; ignore it unless the pointer really left
+  const leave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+    setOver(false)
+  }
+
   const drop = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -299,7 +305,7 @@ function FolderView(props: ViewProps) {
             e.dataTransfer.effectAllowed = 'move'
           }}
           onDragOver={accept}
-          onDragLeave={() => setOver(false)}
+          onDragLeave={leave}
           onDrop={drop}
         >
           <button className="scn-folder-row" onClick={() => onToggleFolder(folder.path)}>
@@ -320,12 +326,7 @@ function FolderView(props: ViewProps) {
         </div>
       )}
       {open && (
-        <div
-          className={isRoot ? `scn-root${over ? ' drop-target' : ''}` : undefined}
-          onDragOver={isRoot ? accept : undefined}
-          onDragLeave={isRoot ? () => setOver(false) : undefined}
-          onDrop={isRoot ? drop : undefined}
-        >
+        <>
           {props.creating === folder.path && (
             <NewFolderRow
               parent={folder.path}
@@ -342,7 +343,15 @@ function FolderView(props: ViewProps) {
           {folder.scenarios.map((item) => (
             <ScenarioRow key={item.path} {...props} item={item} />
           ))}
-        </div>
+          {isRoot && (
+            <div
+              className={`scn-drop-root${over ? ' drop-target' : ''}`}
+              onDragOver={accept}
+              onDragLeave={leave}
+              onDrop={drop}
+            />
+          )}
+        </>
       )}
     </>
   )
@@ -358,19 +367,47 @@ function ScenarioRow({
   onMenu,
   onOpen,
   onRun,
+  onMove,
+  onMoveFolder,
   onChanged,
 }: ViewProps & { item: ScenarioListItem }) {
+  const [over, setOver] = useState(false)
+
+  /** Dropping onto a scenario means "put it where this one lives". */
+  const accept = (e: React.DragEvent) => {
+    const types = e.dataTransfer.types
+    if (!types.includes(DRAG_SCENARIO) && !types.includes(DRAG_FOLDER)) return
+    e.preventDefault()
+    e.stopPropagation()
+    setOver(true)
+  }
+
+  const drop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setOver(false)
+    const scenario = e.dataTransfer.getData(DRAG_SCENARIO)
+    if (scenario) return onMove(scenario, folder.path)
+    const dragged = e.dataTransfer.getData(DRAG_FOLDER)
+    if (dragged) onMoveFolder(dragged, folder.path)
+  }
+
   return (
     <div
       className={`scenario-item${item.path === selectedPath ? ' selected' : ''}${
         !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
-      }`}
+      }${over ? ' drop-target' : ''}`}
       style={{ paddingLeft: folder.depth >= 0 ? 8 + (folder.depth + 1) * 12 : 0 }}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData(DRAG_SCENARIO, item.path)
         e.dataTransfer.effectAllowed = 'move'
       }}
+      onDragOver={accept}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false)
+      }}
+      onDrop={drop}
     >
       <button className="scenario-row" onClick={() => onOpen(item.path)}>
         <span className="scenario-title">

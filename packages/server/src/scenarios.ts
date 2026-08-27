@@ -142,6 +142,9 @@ export function semanticError(scenario: Scenario): string | null {
       return `step "${step.id}": {{${ref}}} is not defined above (vars or an earlier capture)`
     }
     if (isRequestStep(step)) {
+      // caching a step that captures nothing would save nothing and hide a request
+      if (step.cache && Object.keys(step.capture ?? {}).length === 0)
+        return `step "${step.id}": cache needs a capture — there is nothing to reuse otherwise`
       for (const name of Object.keys(step.capture ?? {})) {
         if (known.has(name)) return `step "${step.id}": capture into an already used name "${name}"`
         known.add(name)

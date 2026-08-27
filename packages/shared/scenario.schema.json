@@ -99,6 +99,9 @@
         },
         "retry": {
           "$ref": "#/$defs/retry"
+        },
+        "cache": {
+          "$ref": "#/$defs/duration"
         }
       },
       "oneOf": [
@@ -157,6 +160,13 @@
               "not": {
                 "required": [
                   "timeout"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "cache"
                 ]
               }
             }

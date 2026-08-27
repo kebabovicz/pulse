@@ -57,6 +57,7 @@ Exactly one action per step: `request` or `sleep`.
   timeout: 10s # optional: request timeout (default from project config)
   request: { ... } # the action; or `sleep: 3s`
   retry: { ... } # optional
+  cache: 15m # optional: reuse this step's captures across runs, see below
   expect: { ... } # required with request
   capture: { ... } # optional
   cookies: { ... } # optional
@@ -218,6 +219,33 @@ retry:
 
 The step repeats until `expect` fully passes or attempts run out. Use it to
 poll async results (a dev mailbox, a background job) instead of a long `sleep`.
+
+### cache
+
+A sign-in every scenario repeats is a sign-in the API serves thirty times for
+one useful token. Mark the step and its captures are reused by the runs that
+follow:
+
+```yaml
+- id: sign-in
+  request: { method: POST, path: /api/auth/login, body: { login: '{{login}}', password: '{{password}}' } }
+  cache: 15m # reuse what this step captured for the next quarter of an hour
+  expect: { status: 200 }
+  capture:
+    token: { from: body, path: $.token, secret: true }
+```
+
+- The entry belongs to **this request on this host**: the method, the URL, the
+  body as it was actually sent and the captures asked for. Two accounts, two
+  entries; an edited request starts its own.
+- A cached step sends nothing. The run screen marks it `cached`, its checks do
+  not run, and the captured values arrive as they were.
+- If a request that carries a cached value comes back 401 or 403 where the
+  scenario did not expect it, the entry is dropped, so the next run signs in
+  again. The run that hit the stale token still fails — give the step a `retry`
+  if a single stale attempt should not fail the scenario.
+- Values live in memory: restarting Pulse signs in again.
+- `cache` needs a `capture` — a step that captures nothing has nothing to reuse.
 
 ### cleanup
 

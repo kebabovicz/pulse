@@ -63,7 +63,7 @@ export function StepRow({
       <span
         className={`step-code${r?.response && !r.checks?.find((c) => c.kind === 'status' && !c.passed) ? ' ok' : r?.response ? ' bad' : ''}`}
       >
-        {r?.error ? r.error.message : (r?.response?.status ?? '')}
+        {r?.error ? r.error.message : r?.cached ? t('cached') : (r?.response?.status ?? '')}
       </span>
       <span className="step-duration">{r?.durationMs != null ? fmtMs(r.durationMs) : ''}</span>
       <span className="step-chevron" style={{ transform: open ? 'rotate(180deg)' : 'none' }}>

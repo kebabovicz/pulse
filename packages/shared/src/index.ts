@@ -84,6 +84,9 @@ export interface RequestStep extends StepBase {
   cookies?: CookiesSpec
   retry?: RetrySpec
   timeout?: string
+  /** Reuse what this step captured across runs for this long — a sign-in every
+   *  scenario repeats otherwise (SPEC.md). */
+  cache?: string
 }
 
 export interface SleepStep extends StepBase {
@@ -247,6 +250,7 @@ export interface StepError {
 export interface StepResult {
   stepId: string
   status: StepStatus
+  cached?: boolean // served from the shared cache: nothing was sent
   startedAt?: string
   durationMs?: number
   attempts?: number

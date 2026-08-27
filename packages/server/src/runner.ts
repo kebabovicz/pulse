@@ -17,6 +17,7 @@ import {
   type Substitution,
   type VarUsage,
 } from '@pulse/shared'
+import { SharedCache } from './cache.js'
 import { evalChecks, failedLabels } from './checks.js'
 import { jsonQuery } from './jsonpath.js'
 import { buildMultipart } from './multipart.js'
@@ -43,10 +44,13 @@ interface RunCtx {
   jar: Map<string, string>
   signal: AbortSignal // swapped between phases: main = stop or timeout, cleanup = stop only
   bodyLimit: number
+  /** names this run took from the shared cache instead of asking for them */
+  fromCache: Set<string>
 }
 
 export class Runner {
   private active = new Map<string, ActiveRun>()
+  private cache = new SharedCache()
 
   constructor(
     private bus: EventBus,
@@ -131,6 +135,7 @@ export class Runner {
       jar: new Map(),
       signal: AbortSignal.any([signal, runAbort.signal]),
       bodyLimit: this.settings().bodyLimitBytes,
+      fromCache: new Set(),
     }
     this.publish(ctx, {
       type: 'run-started',
@@ -239,6 +244,8 @@ export class Runner {
   }
 
   private async runRequest(ctx: RunCtx, step: RequestStep): Promise<StepResult> {
+    const cached = step.cache ? this.readCache(ctx, step) : undefined
+    if (cached) return cached
     const maxAttempts = step.retry?.attempts ?? 1
     const retryDelay = step.retry ? parseDuration(step.retry.delay) : 0
     const timeoutMs = step.timeout ? parseDuration(step.timeout) : ctx.project.stepTimeoutMs
@@ -251,6 +258,7 @@ export class Runner {
       const outcome = await this.attempt(ctx, step, timeoutMs)
       if (ctx.signal.aborted) return { stepId: step.id, status: 'skipped' }
       Object.assign(base, outcome, { attempts: attempt, durationMs: Date.now() - t0 })
+      if (outcome.status === 'passed' && step.cache) this.writeCache(ctx, step, outcome.captures ?? [])
       if (outcome.status === 'passed' || attempt === maxAttempts) return base
       this.publish(ctx, {
         type: 'step-retry',
@@ -263,6 +271,27 @@ export class Runner {
       await sleep(retryDelay, { signal: ctx.signal }).catch(() => undefined)
     }
     return base
+  }
+
+  /** The request as this run would send it — the identity of a cached step. */
+  private cacheKey(ctx: RunCtx, step: RequestStep): string {
+    const rendered = ctx.space.render(JSON.stringify(step.request)).text
+    return this.cache.key(ctx.project.id, ctx.baseUrl, step, rendered)
+  }
+
+  /** A step whose captures are still fresh: nothing is sent, the values come back as they were. */
+  private readCache(ctx: RunCtx, step: RequestStep): StepResult | undefined {
+    const values = this.cache.get(this.cacheKey(ctx, step))
+    if (!values) return undefined
+    const startedAt = new Date().toISOString()
+    this.publish(ctx, { type: 'step-started', stepId: step.id, attempt: 1 })
+    const captures: CaptureResult[] = []
+    for (const [name, entry] of Object.entries(values)) {
+      ctx.space.set(name, { value: entry.value, fromStep: step.id, secret: entry.secret })
+      ctx.fromCache.add(name)
+      captures.push(entry.capture)
+    }
+    return { stepId: step.id, status: 'passed', cached: true, startedAt, durationMs: 0, attempts: 1, captures }
   }
 
   private async attempt(
@@ -406,6 +435,16 @@ export class Runner {
       }
     }
     const checks = evalChecks(step.expect, res, text, json, (s) => space.render(s).text)
+    // a cached token the API no longer accepts: drop the entry so the next run
+    // signs in again instead of failing the same way, run after run
+    const statusCheck = checks.find((c) => c.kind === 'status')
+    if (
+      (res.status === 401 || res.status === 403) &&
+      statusCheck?.passed === false &&
+      substitutions.some((sub) => ctx.fromCache.has(sub.var))
+    ) {
+      this.cache.dropHost(ctx.project.id, ctx.baseUrl)
+    }
     if (!checks.every((c) => c.passed)) return { status: 'failed', request: snapshot, response, checks }
 
     const captures: CaptureResult[] = []
@@ -451,6 +490,22 @@ export class Runner {
     return hidSecret
       ? { status: 'passed', ...maskStep(space, snapshot, response, checks), captures }
       : { status: 'passed', request: snapshot, response, checks, captures }
+  }
+
+  /** Keeps what the step captured for the runs that follow, secrets included. */
+  private writeCache(ctx: RunCtx, step: RequestStep, captures: CaptureResult[]): void {
+    if (captures.length === 0) return
+    const values = Object.fromEntries(
+      captures.map((capture) => [
+        capture.name,
+        {
+          value: ctx.space.get(capture.name)?.value ?? '',
+          secret: ctx.space.get(capture.name)?.secret ?? false,
+          capture,
+        },
+      ]),
+    )
+    this.cache.set(this.cacheKey(ctx, step), values, parseDuration(step.cache!))
   }
 
   private publish(ctx: RunCtx, event: Record<string, unknown> & { type: string }): void {

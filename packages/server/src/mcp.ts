@@ -59,6 +59,7 @@ function runSummary(record: RunRecord) {
       request: step.kind === 'request' ? `${step.method} ${step.path ?? ''}`.trim() : `pause ${step.durationMs ?? 0}ms`,
       status: step.status,
       code: step.response?.status,
+      cached: step.cached || undefined,
       durationMs: step.durationMs,
       attempts: step.attempts && step.attempts > 1 ? step.attempts : undefined,
       failed: step.status === 'failed' ? failedChecks(step.checks) : undefined,

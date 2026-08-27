@@ -53,8 +53,8 @@ docker run -d --name pulse -p 7100:7100 \
 ```
 
 The image is published by CI on every push to `main` (and `vX.Y.Z` git tags).
-While the repository is private the package is private too — `docker login ghcr.io`
-with a token that has `read:packages` first. Or build from source:
+If the package is still private, `docker login ghcr.io` with a token that has
+`read:packages` first. Or build from source:
 
 ```sh
 docker build -t pulse .

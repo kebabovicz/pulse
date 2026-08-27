@@ -26,6 +26,12 @@ export const Check = (p: { size?: number }) => (
   </Svg>
 )
 
+export const Paperclip = (p: { size?: number }) => (
+  <Svg {...p}>
+    <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8-8a3.5 3.5 0 1 1 5 5l-8 8a2 2 0 1 1-3-3l7-7" />
+  </Svg>
+)
+
 export const Cross = (p: { size?: number }) => (
   <Svg {...p}>
     <path d="M18 6 6 18M6 6l12 12" />

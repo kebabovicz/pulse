@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { ScenarioListItem } from '@pulse/shared'
-import { createFolder, deleteFolder, importScenario, renameScenario } from './api'
+import type { FixtureItem, ScenarioListItem } from '@pulse/shared'
+import { createFolder, deleteFolder, importScenario, renameScenario, uploadFixture } from './api'
 import {
   Check,
   ChevronDown,
+  Paperclip,
   ChevronsDownUp,
   ChevronsUpDown,
   FolderPlus,
@@ -26,6 +27,7 @@ export function ScenarioList({
   projectId,
   scenarios,
   folders,
+  fixtures,
   selectedPath,
   running,
   seen,
@@ -38,6 +40,7 @@ export function ScenarioList({
   projectId: string
   scenarios: ScenarioListItem[]
   folders: string[]
+  fixtures: FixtureItem[]
   selectedPath: string | null
   /** steps finished out of steps planned, for every run going right now */
   running: Record<string, { done: number; total: number; finished?: boolean }>
@@ -65,8 +68,9 @@ export function ScenarioList({
     const visible = query
       ? scenarios.filter((s) => s.path.toLowerCase().includes(query) || s.name.toLowerCase().includes(query))
       : scenarios
-    return buildTree(visible, folders)
-  }, [scenarios, folders, search])
+    const visibleFixtures = query ? fixtures.filter((f) => f.path.toLowerCase().includes(query)) : fixtures
+    return buildTree(visible, folders, visibleFixtures)
+  }, [scenarios, folders, fixtures, search])
 
   // every folder of the tree, so one button can fold or unfold the lot
   const everyFolder = useMemo(() => {
@@ -176,12 +180,18 @@ export function ScenarioList({
     }
   }
 
-  const importFiles = async (files: File[]) => {
+  /** A dropped .yaml is a scenario; anything else lands as a fixture beside them. */
+  const importFiles = async (files: File[], folder = '') => {
     const failures: string[] = []
     for (const file of files) {
-      await importScenario(projectId, file.name, await file.text()).catch((err: Error) => failures.push(err.message))
+      const target = `${folder}${file.name}`
+      const put = /\.ya?ml$/i.test(file.name)
+        ? importScenario(projectId, target, await file.text())
+        : uploadFixture(projectId, target, await toBase64(file))
+      await put.catch((err: Error) => failures.push(err.message))
     }
     for (const failure of failures) notify(failure)
+    onChanged()
   }
 
   return (
@@ -251,6 +261,7 @@ export function ScenarioList({
         onRunFolder={onRunFolder}
         onMove={(from, to) => void move(from, to)}
         onMoveFolder={(from, to) => void moveFolder(from, to)}
+        onImportFiles={(files, folder) => void importFiles(files, folder)}
         onDeleteFolder={(folder) => void removeFolder(folder)}
         creating={creating}
         createError={createError}
@@ -342,6 +353,7 @@ interface ViewProps {
   onRunFolder: (paths: string[]) => void
   onMove: (from: string, toFolder: string) => void
   onMoveFolder: (from: string, toFolder: string) => void
+  onImportFiles: (files: File[], folder: string) => void
   onDeleteFolder: (folder: TreeFolder) => void
   /** path of the folder a new one is being typed into, or null */
   creating: string | null
@@ -443,6 +455,9 @@ function FolderView(props: ViewProps) {
     e.preventDefault()
     e.stopPropagation()
     setOver(false)
+    // files dragged from the desktop land in this folder: yaml as scenarios, the rest as fixtures
+    const files = [...(e.dataTransfer.files ?? [])]
+    if (files.length > 0) return void props.onImportFiles(files, folder.path)
     const scenario = e.dataTransfer.getData(DRAG_SCENARIO)
     if (scenario) return onMove(scenario, folder.path)
     const dragged = e.dataTransfer.getData(DRAG_FOLDER)
@@ -534,6 +549,15 @@ function FolderView(props: ViewProps) {
           {folder.scenarios.map((item) => (
             <ScenarioRow key={item.path} {...props} item={item} />
           ))}
+          {folder.fixtures.map((fixture) => (
+            <FixtureRow
+              key={fixture.path}
+              fixture={fixture}
+              depth={folder.depth + 1}
+              selected={fixture.path === props.selectedPath}
+              onOpen={props.onOpen}
+            />
+          ))}
           {folder.folders.map((child) => (
             <FolderView key={child.path} {...props} folder={child} />
           ))}
@@ -551,6 +575,50 @@ function FolderView(props: ViewProps) {
   )
 }
 
+const fmtBytes = (n: number): string =>
+  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`
+
+/**
+ * A file a scenario uploads. It cannot be run or edited here, so the row only
+ * says what it is and who reads it — a fixture nobody names is dimmed, because
+ * that is usually a leftover.
+ */
+function FixtureRow({
+  fixture,
+  depth,
+  selected,
+  onOpen,
+}: {
+  fixture: FixtureItem
+  depth: number
+  selected: boolean
+  onOpen: (path: string) => void
+}) {
+  const orphan = fixture.usedBy.length === 0
+  return (
+    <div
+      className={`scenario-item fixture-item${selected ? ' selected' : ''}${orphan ? ' orphan' : ''}`}
+      style={indent(depth)}
+    >
+      <button className="scenario-row" onClick={() => onOpen(fixture.path)}>
+        <span className="scenario-title">
+          <span className="scenario-name">{fileLabel(fixture.path)}</span>
+          <span className="muted fixture-mark">
+            <Paperclip size={11} />
+          </span>
+        </span>
+        <span className="meta">
+          <span className="meta-main">
+            {fmtBytes(fixture.sizeBytes)}
+            {' · '}
+            {orphan ? t('fixtureUnused') : t('fixtureUsedBy', fixture.usedBy.length)}
+          </span>
+        </span>
+      </button>
+    </div>
+  )
+}
+
 function ScenarioRow({
   item,
   folder,
@@ -564,6 +632,7 @@ function ScenarioRow({
   onRun,
   onMove,
   onMoveFolder,
+  onImportFiles,
   onChanged,
 }: ViewProps & { item: ScenarioListItem }) {
   const [over, setOver] = useState(false)
@@ -582,6 +651,9 @@ function ScenarioRow({
     e.preventDefault()
     e.stopPropagation()
     setOver(false)
+    // files dragged from the desktop land in this folder: yaml as scenarios, the rest as fixtures
+    const files = [...(e.dataTransfer.files ?? [])]
+    if (files.length > 0) return void onImportFiles(files, folder.path)
     const scenario = e.dataTransfer.getData(DRAG_SCENARIO)
     if (scenario) return onMove(scenario, folder.path)
     const dragged = e.dataTransfer.getData(DRAG_FOLDER)
@@ -663,6 +735,7 @@ function ScenarioName({ label }: { label: string }) {
  */
 function outcomeClass(item: ScenarioListItem): string {
   if (!item.valid) return 'invalid'
+  if (item.missingFixtures?.length) return 'invalid' // a file it uploads is not there
   if (!item.lastRun) return ''
   if (item.lastRun.status === 'failed') return 'failed'
   if (item.lastRun.slow || item.lastRun.retried) return 'slow'
@@ -695,6 +768,14 @@ function ScenarioMeta({ item }: { item: ScenarioListItem }) {
       </span>
     )
   }
+  // a fixture it names is not in the folder: the run would fail on that step
+  if (item.missingFixtures?.length) {
+    return (
+      <span className="meta invalid" title={item.missingFixtures.join(', ')}>
+        {t('fixtureMissing')}: {item.missingFixtures.join(', ')}
+      </span>
+    )
+  }
   return (
     <span className="meta">
       <span className="meta-main">
@@ -717,4 +798,14 @@ function lastRunLabel(last: NonNullable<ScenarioListItem['lastRun']>): string {
   return sameDay
     ? when.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })
     : when.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })
+}
+
+/** A file as the fixture endpoint wants it: base64 without the data: prefix. */
+function toBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((typeof reader.result === 'string' ? reader.result : '').split(',')[1] ?? '')
+    reader.onerror = () => reject(new Error(`${file.name}: could not be read`))
+    reader.readAsDataURL(file)
+  })
 }

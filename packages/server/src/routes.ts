@@ -8,7 +8,7 @@ import type { HealthMonitor } from './health.js'
 import type { Runner } from './runner.js'
 import type { StateStore } from './state.js'
 import { updateScenarioName, updateVarDefaults } from './scenarioEditor.js'
-import { validateScenario, type ScenarioStore } from './scenarios.js'
+import { fixtureRefs, validateScenario, type ScenarioStore } from './scenarios.js'
 import { projectStats } from './stats.js'
 import { RunStore } from './storage.js'
 
@@ -27,6 +27,19 @@ export interface AppContext {
 }
 
 /** Every folder under the scenarios root, empty ones included, as relative paths. */
+/** Every file in the scenarios folder that is not a scenario: fixtures a step uploads. */
+function listFixtures(root: string, prefix = ''): { path: string; sizeBytes: number; modifiedAt: string }[] {
+  const dir = path.join(root, prefix)
+  if (!fs.existsSync(dir)) return []
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) return listFixtures(root, rel)
+    if (/\.ya?ml$/i.test(entry.name)) return []
+    const stat = fs.statSync(path.join(dir, entry.name))
+    return [{ path: rel, sizeBytes: stat.size, modifiedAt: stat.mtime.toISOString() }]
+  })
+}
+
 function listFolders(root: string, prefix = ''): string[] {
   const dir = path.join(root, prefix)
   if (!fs.existsSync(dir)) return []
@@ -266,17 +279,68 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     return { deleted: rel }
   })
 
+  /** The bytes of a fixture, so the UI can show the picture or the text it holds. */
+  app.get<{ Params: { id: string }; Querystring: { path?: string } }>('/api/projects/:id/fixture', (req, reply) => {
+    const project = findProject(req.params.id)
+    if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+    const rel = safeRel(req.query.path, project.scenariosDir)
+    if (!rel || /\.ya?ml$/i.test(rel)) return reply.code(400).send({ message: 'not a fixture path' })
+    const abs = path.join(project.scenariosDir, rel)
+    if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory())
+      return reply.code(404).send({ message: `no file "${rel}"` })
+    return reply.type(contentTypeOf(rel)).send(fs.createReadStream(abs))
+  })
+
+  /** Uploads a fixture from the UI — the same file an MCP agent would put there. */
+  app.post<{ Params: { id: string }; Body: { path: string; base64: string } }>(
+    '/api/projects/:id/fixtures',
+    (req, reply) => {
+      const project = findProject(req.params.id)
+      if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+      const rel = safeRel(req.body.path, project.scenariosDir)
+      if (!rel) return reply.code(400).send({ message: 'path must stay inside the scenarios folder' })
+      if (/\.ya?ml$/i.test(rel))
+        return reply.code(400).send({ message: 'a .yaml file is a scenario — import it as one' })
+      const bytes = Buffer.from(req.body.base64 ?? '', 'base64')
+      if (bytes.length === 0) return reply.code(400).send({ message: `${rel}: empty file` })
+      if (bytes.length > MAX_FIXTURE_BYTES)
+        return reply.code(400).send({ message: `${rel} is over the ${MAX_FIXTURE_BYTES / 1024 / 1024} MB limit` })
+      const abs = path.join(project.scenariosDir, rel)
+      fs.mkdirSync(path.dirname(abs), { recursive: true })
+      fs.writeFileSync(abs, bytes)
+      ctx.bus.publish({ type: 'scenario-changed', project: project.id, path: rel, action: 'updated' })
+      return { path: rel, sizeBytes: bytes.length }
+    },
+  )
+
   app.get<{ Params: { id: string } }>('/api/projects/:id/scenarios', (req, reply) => {
     const project = findProject(req.params.id)
     const list = ctx.scenarios.list(req.params.id)
     if (!list) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     const ciSet = new Set(ctx.state.getCiScenarios(req.params.id))
+    // which scenario uploads which file, so a fixture knows its readers and a
+    // scenario knows when the file it names is not there
+    const usedBy = new Map<string, string[]>()
+    const missingBy = new Map<string, string[]>()
+    const fixtures = project ? listFixtures(project.scenariosDir) : []
+    const known = new Set(fixtures.map((f) => f.path))
+    for (const summary of list) {
+      const loaded = ctx.scenarios.get(req.params.id, summary.path)
+      if (!loaded?.scenario) continue
+      for (const ref of fixtureRefs(loaded.scenario)) {
+        const normalized = path.normalize(ref).replaceAll(path.sep, '/')
+        if (known.has(normalized)) usedBy.set(normalized, [...(usedBy.get(normalized) ?? []), summary.path])
+        else missingBy.set(summary.path, [...(missingBy.get(summary.path) ?? []), ref])
+      }
+    }
+
     const scenarios: ScenarioListItem[] = list.map((summary) => {
       const index = ctx.runs.readIndex(req.params.id, RunStore.scenarioKey(summary.path))
       const last = index.at(-1)
       return {
         ...summary,
         ci: ciSet.has(summary.path),
+        ...(missingBy.has(summary.path) && { missingFixtures: missingBy.get(summary.path) }),
         ...(last && {
           lastRun: {
             run: last.run,
@@ -290,7 +354,11 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
         }),
       }
     })
-    return { scenarios, folders: project ? listFolders(project.scenariosDir) : [] }
+    return {
+      scenarios,
+      folders: project ? listFolders(project.scenariosDir) : [],
+      fixtures: fixtures.map((f) => ({ ...f, usedBy: usedBy.get(f.path) ?? [] })),
+    }
   })
 
   app.post<{ Params: { id: string } }>('/api/projects/:id/health-check', async (req, reply) => {
@@ -513,3 +581,24 @@ function ranSlow(index: RunIndexEntry[]): boolean {
   const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
   return last.durationMs > median * SLOW_FACTOR && last.durationMs - median >= SLOW_FLOOR_MS
 }
+
+/** A fixture is served for a preview, so the browser needs to know what it is. */
+const FIXTURE_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
+  '.json': 'application/json',
+  '.txt': 'text/plain; charset=utf-8',
+  '.csv': 'text/csv; charset=utf-8',
+  '.xml': 'application/xml',
+}
+
+const contentTypeOf = (rel: string): string =>
+  FIXTURE_TYPES[path.extname(rel).toLowerCase()] ?? 'application/octet-stream'
+
+/** Fixtures travel through JSON as base64: the same ceiling as the MCP tool. */
+const MAX_FIXTURE_BYTES = 8 * 1024 * 1024

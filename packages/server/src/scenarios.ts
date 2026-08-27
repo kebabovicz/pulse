@@ -166,6 +166,20 @@ function* collectRefs(value: unknown): Generator<string> {
   }
 }
 
+/** Fixture paths a scenario uploads, as written in the file (interpolated ones are skipped). */
+export function fixtureRefs(scenario: Scenario): string[] {
+  const paths: string[] = []
+  for (const step of [...scenario.steps, ...(scenario.cleanup ?? [])]) {
+    if (!isRequestStep(step) || !step.request.multipart) continue
+    for (const part of Object.values(step.request.multipart)) {
+      for (const one of Array.isArray(part) ? part : [part]) {
+        if (typeof one === 'object' && 'file' in one && !one.file.includes('{{')) paths.push(one.file)
+      }
+    }
+  }
+  return [...new Set(paths)]
+}
+
 export function* stepRefs(step: Step): Generator<string> {
   if (!isRequestStep(step)) return
   yield* collectRefs(step.request)

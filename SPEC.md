@@ -109,9 +109,12 @@ request:
 ```
 
 - **Files live next to the scenarios**, in the project's scenarios folder
-  (a `fixtures/` subfolder is the usual place — it shows up as a group in the
-  sidebar). A path outside that folder, or a file that is not there, fails the
-  step with an explicit error, not the whole run. The limit is 64 MB per file.
+  (a `fixtures/` subfolder is the usual place). They appear in the sidebar
+  beside the scenarios, with their size and who uploads them; drag a file onto a
+  folder to add it, and Pulse marks a scenario whose file is missing before the
+  run rather than during it. A path outside the folder, or a file that is not
+  there, fails that step with an explicit error, not the whole run. The limit is
+  64 MB per file.
 - **`filename` defaults** to the file name for `file:`, and to the field name for
   `text:` and `base64:` — set it explicitly when the server checks the extension.
 - The run screen shows every part: name, file name, type and size, so a failed

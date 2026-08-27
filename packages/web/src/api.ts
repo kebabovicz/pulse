@@ -1,4 +1,5 @@
 import type {
+  FixtureItem,
   ProjectStats,
   ProjectView,
   RunIndexEntry,
@@ -42,7 +43,16 @@ export const fetchProjects = () =>
   request<{ projects: ProjectView[]; errors: string[]; configPath: string; authEnabled: boolean }>('/api/projects')
 
 export const fetchScenarios = (project: string) =>
-  request<{ scenarios: ScenarioListItem[]; folders: string[] }>(`/api/projects/${project}/scenarios`)
+  request<{ scenarios: ScenarioListItem[]; folders: string[]; fixtures: FixtureItem[] }>(
+    `/api/projects/${project}/scenarios`,
+  )
+
+/** Address of a fixture's bytes — used straight as an <img> source. */
+export const fixtureUrl = (project: string, path: string) =>
+  `/api/projects/${project}/fixture?path=${encodeURIComponent(path)}`
+
+export const uploadFixture = (project: string, path: string, base64: string) =>
+  post<{ path: string; sizeBytes: number }>(`/api/projects/${project}/fixtures`, { path, base64 })
 
 export interface FileFragment {
   startLine: number

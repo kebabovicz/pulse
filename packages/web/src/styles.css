@@ -424,6 +424,28 @@ body.resizing {
   background: var(--ok);
 }
 
+/* a fixture is a file, not a scenario: no run marks, and an unused one steps back */
+.fixture-item .scenario-name {
+  font-weight: 400;
+}
+.fixture-item.orphan .scenario-row {
+  opacity: 0.6;
+}
+.fixture-mark {
+  display: inline-flex;
+  flex: none;
+}
+.fixture-preview {
+  padding: 12px 20px;
+}
+.fixture-preview img {
+  max-width: 100%;
+  max-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-app);
+}
+
 /* a running scenario fills from the left: the progress is visible without opening it */
 .scn-progress {
   position: absolute;

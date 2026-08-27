@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ProjectView, RunRecord, RunsGroup, ScenarioListItem } from '@pulse/shared'
+import type { FixtureItem, ProjectView, RunRecord, RunsGroup, ScenarioListItem } from '@pulse/shared'
 import {
   clearRuns,
   fetchAllRuns,
@@ -12,6 +12,7 @@ import {
   type FileFragment,
 } from './api'
 import { CompareScreen } from './CompareScreen'
+import { FixtureScreen } from './FixtureScreen'
 import { subscribeToEvents } from './eventStream'
 import { HistoryScreen } from './HistoryScreen'
 import { t } from './i18n'
@@ -49,6 +50,9 @@ const SIDEBAR_MAX = 720
 export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [scenarios, setScenarios] = useState<ScenarioListItem[]>([])
   const [folders, setFolders] = useState<string[]>([])
+  const [fixtures, setFixtures] = useState<FixtureItem[]>([])
+  // a fixture opens its own screen: it has no runs to show
+  const [openFixture, setOpenFixture] = useState<FixtureItem | null>(null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('run')
   const [runState, setRunState] = useState<RunState | null>(null)
@@ -98,9 +102,10 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   }
 
   const reloadScenarios = () =>
-    fetchScenarios(project.id).then(({ scenarios, folders }) => {
+    fetchScenarios(project.id).then(({ scenarios, folders, fixtures }) => {
       setScenarios(scenarios)
       setFolders(folders)
+      setFixtures(fixtures)
     })
 
   useEffect(
@@ -118,8 +123,9 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
             return [...rest, { ...kept, ...event.summary }].sort((a, b) => a.path.localeCompare(b.path))
           })
           // a file that just appeared may be one moved from elsewhere, history and
-          // all — only the server knows, so ask it
-          if (event.action === 'added') void reloadScenarios()
+          // all — only the server knows, so ask it. A fixture is not a scenario
+          // at all, so its arrival always means a fresh list.
+          if (event.action === 'added' || !/\.ya?ml$/i.test(event.path)) void reloadScenarios()
         } else if ('run' in event) {
           // no live flag in the condition: reduce() itself ignores events of
           // other runs, so an event arriving before React re-renders is not lost
@@ -167,6 +173,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     })
 
   const resetView = () => {
+    setOpenFixture(null)
     setRunState(null)
     setInvalidFragment(null)
   }
@@ -176,6 +183,11 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const openScenario = async (path: string, list: ScenarioListItem[] = scenarios) => {
     setSelectedPath(path)
     resetView()
+    const fixture = fixtures.find((f) => f.path === path)
+    if (fixture) {
+      setOpenFixture(fixture)
+      return
+    }
     localStorage.setItem(lastScenarioKey(project.id), path)
     const request = ++openRequest.current
     setLoading(true)
@@ -264,9 +276,10 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   }
 
   useEffect(() => {
-    void fetchScenarios(project.id).then(({ scenarios, folders }) => {
+    void fetchScenarios(project.id).then(({ scenarios, folders, fixtures }) => {
       setScenarios(scenarios)
       setFolders(folders)
+      setFixtures(fixtures)
       // restore context after a reload (a language switch reloads the page)
       const saved = localStorage.getItem(lastScenarioKey(project.id))
       if (saved && scenarios.some((s) => s.path === saved)) void openScenario(saved, scenarios)
@@ -292,6 +305,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
         projectId={project.id}
         scenarios={scenarios}
         folders={folders}
+        fixtures={fixtures}
         selectedPath={selectedPath}
         running={progress}
         onOpen={(path) => void openScenario(path)}
@@ -349,6 +363,17 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
               onOpen={(scenario, run) => void openRun(scenario, run)}
               onCompare={(scenario, a, b) => void openCompare(scenario, a, b)}
               onClear={(scenario) => void clearHistory(scenario)}
+            />
+          ) : openFixture ? (
+            <FixtureScreen
+              project={project.id}
+              fixture={openFixture}
+              onOpenScenario={(path) => void openScenario(path)}
+              onDeleted={() => {
+                setOpenFixture(null)
+                setSelectedPath(null)
+                void reloadScenarios()
+              }}
             />
           ) : runState ? (
             <RunScreen

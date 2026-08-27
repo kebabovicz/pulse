@@ -129,8 +129,18 @@ export interface ScenarioSummary {
   hash: string // sha256 of the file; comparing it with runs reveals "file changed"
 }
 
+/** A file a scenario uploads: it lives beside the scenarios and is not a scenario. */
+export interface FixtureItem {
+  path: string // relative to the project's scenarios folder
+  sizeBytes: number
+  modifiedAt: string
+  usedBy: string[] // scenarios whose multipart steps name this file
+}
+
 /** A scenario list row: file summary plus the outcome of the last run. */
 export interface ScenarioListItem extends ScenarioSummary {
+  /** files the scenario uploads that are not in the folder — the run would fail on them */
+  missingFixtures?: string[]
   lastRun?: Pick<RunIndexEntry, 'run' | 'status' | 'durationMs' | 'startedAt' | 'failedStep'> & {
     slow?: boolean // took noticeably longer than this scenario usually takes
     retried?: boolean // passed, but a step had to be repeated

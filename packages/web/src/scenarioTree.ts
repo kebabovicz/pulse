@@ -1,4 +1,4 @@
-import type { ScenarioListItem } from '@pulse/shared'
+import type { FixtureItem, ScenarioListItem } from '@pulse/shared'
 
 /**
  * The sidebar as a tree: folders nest, and each folder knows every scenario
@@ -12,6 +12,8 @@ export interface TreeFolder {
   depth: number
   folders: TreeFolder[]
   scenarios: ScenarioListItem[]
+  /** files the scenarios upload: shown in the tree, never run */
+  fixtures: FixtureItem[]
   /** everything runnable below this folder, subfolders included */
   runnable: string[]
 }
@@ -22,6 +24,7 @@ const emptyFolder = (path: string, name: string, depth: number): TreeFolder => (
   depth,
   folders: [],
   scenarios: [],
+  fixtures: [],
   runnable: [],
 })
 
@@ -47,7 +50,7 @@ function folderAt(root: TreeFolder, parts: string[]): TreeFolder {
  * Builds the tree from flat paths; the root holds files at the top level.
  * Folders are passed in separately so an empty one still shows up.
  */
-export function buildTree(items: ScenarioListItem[], folders: string[] = []): TreeFolder {
+export function buildTree(items: ScenarioListItem[], folders: string[] = [], fixtures: FixtureItem[] = []): TreeFolder {
   const root = emptyFolder('', '', -1)
   for (const folder of folders) folderAt(root, folder.split('/'))
   for (const item of items) {
@@ -55,6 +58,11 @@ export function buildTree(items: ScenarioListItem[], folders: string[] = []): Tr
     const fileName = parts.pop()
     if (fileName === undefined) continue
     folderAt(root, parts).scenarios.push(item)
+  }
+  for (const fixture of fixtures) {
+    const parts = fixture.path.split('/')
+    parts.pop()
+    folderAt(root, parts).fixtures.push(fixture)
   }
   sortFolder(root)
   collectRunnable(root)
@@ -64,6 +72,7 @@ export function buildTree(items: ScenarioListItem[], folders: string[] = []): Tr
 function sortFolder(folder: TreeFolder): void {
   folder.folders.sort((a, b) => a.name.localeCompare(b.name))
   folder.scenarios.sort((a, b) => a.path.localeCompare(b.path))
+  folder.fixtures.sort((a, b) => a.path.localeCompare(b.path))
   for (const child of folder.folders) sortFolder(child)
 }
 

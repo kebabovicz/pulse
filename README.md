@@ -24,11 +24,16 @@ embedded scripts.
 
 - **Live runs** — every step streams to the browser as it executes; expected
   negative responses (401 on a burned token) count as passing steps
-- **Full step detail** — request as fields / cURL / raw, response as tree /
-  JSON / raw, every check with expected vs actual, captured variables with
-  their consumers
+- **Full step detail** — request parsed / as cURL / raw, response as tree /
+  JSON / text / raw, every check with expected vs actual, captured variables
+  with their consumers
 - **History and diff** — every run is stored; compare two runs step by step
   with durations and deltas
+- **Project statistics** — over the last N runs: what slowed down, what fails,
+  which steps pass only on a retry, the slowest endpoints, what nobody ran for
+  a week
+- **MCP server** — a coding agent reads the format, writes a scenario, runs it
+  and reads back what failed, without a human relaying files
 - **Multiple hosts per project** — run the same scenarios against localhost or
   a stand, switch in the header, add hosts ad hoc
 - **Deploy suite** — mark scenarios "Run on deploy" and trigger them from CI
@@ -82,6 +87,42 @@ It appears in the sidebar by itself. Press run.
 The full scenario format — checks, captures, retries, cookies, cleanup — is in
 [SPEC.md](SPEC.md). Configuration, storage layout and the CI endpoint are in
 [spec/config.md](spec/config.md).
+
+## Configuration
+
+Everything the container needs is a data volume; the rest is optional.
+
+| variable | default | effect |
+| --- | --- | --- |
+| `PULSE_PORT` | `7100` | port to listen on |
+| `PULSE_DATA_DIR` | `/data` | config, scenarios and run history |
+| `PULSE_USER` | — | login; without a password there is no login screen |
+| `PULSE_PASSWORD` | — | password, and the bearer token for CI and MCP |
+| `LOG_LEVEL` | `info` | log level |
+| `PULSE_LOG_STEPS` | — | `1` adds a log record per finished step |
+| `PULSE_EVENTS_FILE` | — | append events to a file as JSON Lines |
+| `PULSE_EVENTS_URL` | — | POST batches of events to a collector |
+| `PULSE_EVENTS_TOKEN` | — | bearer token for that endpoint |
+
+```sh
+docker run -d --name pulse -p 7100:7100 \
+  -v pulse-data:/data \
+  -e PULSE_USER=pulse -e PULSE_PASSWORD=secret \
+  -e PULSE_EVENTS_URL=https://collector.example.com/ingest \
+  --add-host host.docker.internal:host-gateway \
+  ghcr.io/kebabovicz/pulse:latest
+```
+
+Timeouts and limits live in `projects.yaml`, next to the projects, because they
+belong to the data rather than to the deployment:
+
+```yaml
+settings:
+  healthInterval: 30s   # how often a host is pinged
+  stepTimeout: 10s      # per request; a step may override it
+  runTimeout: 5m        # a whole run
+  bodyLimit: 256kb      # response body kept in the run record
+```
 
 ## Writing scenarios with an agent (MCP)
 
@@ -139,19 +180,12 @@ That is what promtail, alloy, fluent-bit and the rest already ingest, so a
 Grafana dashboard or an alert on `status="failed"` needs no exporter of its own.
 
 Events: `run.started`, `run.finished`, `step.finished`, `scenario.changed`,
-`health.changed`.
+`health.changed`. Step records are off by default (`PULSE_LOG_STEPS=1`).
 
-| variable | effect |
-| --- | --- |
-| `LOG_LEVEL` | log level, `info` by default |
-| `PULSE_LOG_STEPS=1` | add a record per finished step, not just per run |
-| `PULSE_EVENTS_FILE` | append the same records to a file as JSON Lines |
-| `PULSE_EVENTS_URL` | POST batches of records to a collector or an alert hook |
-| `PULSE_EVENTS_TOKEN` | bearer token for that endpoint |
-
-Batches are flushed every 50 records or two seconds, and once more when the
-container stops. A collector that is down is logged and skipped — telemetry
-never stalls a run.
+The same records can go to a file (`PULSE_EVENTS_FILE`) or to a collector
+(`PULSE_EVENTS_URL`) in batches — every 50 records or two seconds, and once more
+when the container stops. A collector that is down is logged and skipped:
+telemetry never stalls a run.
 
 ## CI integration
 

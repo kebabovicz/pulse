@@ -341,8 +341,8 @@ body.resizing {
   padding: 6px 0;
   background: none;
   border: 0;
-  color: var(--text-muted);
-  font: 400 10px var(--font-ui);
+  color: var(--text-secondary);
+  font: 400 11px var(--font-ui);
   text-align: left;
   cursor: pointer;
 }
@@ -424,6 +424,20 @@ body.resizing {
   background: var(--ok);
 }
 
+/* the deploy mark: one reserved dot at the end of every name line, filled only
+   for the scenarios the deploy suite runs */
+.ci-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: none;
+}
+.ci-dot.on {
+  background: var(--accent);
+}
+
 /* a fixture is a file, not a scenario: no run marks, and an unused one steps back */
 .fixture-item .scenario-name {
   font-weight: 400;
@@ -486,14 +500,14 @@ body.resizing {
   padding: 7px 20px 7px 17px;
   border: 0;
   background: none;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font: 400 12px var(--font-ui);
   cursor: pointer;
 }
+/* the ones that want attention keep their weight; the colour is the same for all */
 .scenario-item.selected .scenario-row,
 .scenario-item.failed .scenario-row,
 .scenario-item.invalid .scenario-row {
-  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -528,10 +542,6 @@ body.resizing {
 .meta-main {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.meta-ci {
-  flex: none;
-  padding-left: 5px;
 }
 /* the file name is the dimmest thing in the row: the scenario's name leads it */
 .meta-file {

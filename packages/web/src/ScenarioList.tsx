@@ -692,6 +692,9 @@ function ScenarioRow({
         <span className="scenario-title">
           <ScenarioName label={item.valid ? item.name : fileLabel(item.path)} />
           <ScenarioStatus item={item} running={Boolean(run)} />
+          {/* always present, so the mark sits in one column instead of trailing
+              the text at a different place in every row */}
+          <span className={`ci-dot${item.ci ? ' on' : ''}`} title={item.ci ? t('runOnDeploy') : undefined} />
         </span>
         <ScenarioMeta item={item} />
       </button>
@@ -786,7 +789,6 @@ function ScenarioMeta({ item }: { item: ScenarioListItem }) {
         {t('steps', item.stepCount)}
         {item.lastRun && ` · ${lastRunLabel(item.lastRun)}`}
       </span>
-      {item.ci && <span className="accent meta-ci">· ci</span>}
     </span>
   )
 }

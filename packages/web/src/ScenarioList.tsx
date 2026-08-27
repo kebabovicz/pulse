@@ -365,7 +365,7 @@ const indent = (depth: number): React.CSSProperties => {
 }
 
 /** Renaming waits for a second click, but not as long as the system double click does. */
-const DOUBLE_CLICK_MS = 100
+const DOUBLE_CLICK_MS = 200
 
 /** What is being dragged: a scenario file or a whole folder. */
 const DRAG_SCENARIO = 'application/x-pulse-scenario'

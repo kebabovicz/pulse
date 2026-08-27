@@ -250,12 +250,34 @@ body {
   opacity: 0.35;
 }
 
-/* the trash asks in place, the way clearing history does */
-.row-sure {
-  padding: 1px 6px;
-  gap: 4px;
-  font-size: 10px;
-  margin-left: 4px;
+/* the trash asks in place: it reddens and the question slides out beside it */
+.row-action.row-ask {
+  width: auto;
+  min-width: 26px;
+}
+.row-action.row-ask.asking,
+.row-action.row-ask.asking:hover {
+  color: var(--fail);
+}
+.row-ask-text {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: var(--fail);
+  font: 400 10px var(--font-ui);
+  white-space: nowrap;
+  transform: translateX(6px);
+  transition:
+    max-width 0.18s ease,
+    opacity 0.15s ease,
+    padding-left 0.18s ease,
+    transform 0.18s ease;
+}
+.row-ask.asking .row-ask-text {
+  max-width: 48px;
+  padding-left: 4px;
+  opacity: 1;
+  transform: none;
 }
 
 /* a folder being named */

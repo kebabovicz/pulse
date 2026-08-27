@@ -401,21 +401,18 @@ function FolderView(props: ViewProps) {
               <Play size={12} />
             </button>
           )}
-          {asking ? (
-            <button
-              className="btn danger row-sure"
-              onClick={() => {
-                setAsking(false)
-                props.onDeleteFolder(folder)
-              }}
-            >
-              <Trash size={11} /> {t('sure')}
-            </button>
-          ) : (
-            <button className="row-action" title={t('deleteFolder')} onClick={() => setAsking(true)}>
-              <Trash size={11} />
-            </button>
-          )}
+          <button
+            className={`row-action row-ask${asking ? ' asking' : ''}`}
+            title={asking ? t('sure') : t('deleteFolder')}
+            onClick={() => {
+              if (!asking) return setAsking(true)
+              setAsking(false)
+              props.onDeleteFolder(folder)
+            }}
+          >
+            <Trash size={11} />
+            <span className="row-ask-text">{t('sure')}</span>
+          </button>
         </div>
       )}
       {open && (

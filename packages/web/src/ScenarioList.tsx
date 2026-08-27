@@ -33,6 +33,8 @@ export function ScenarioList({
   const [search, setSearch] = useState('')
   const [menuPath, setMenuPath] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [creating, setCreating] = useState<string | null>(null)
+  const [createError, setCreateError] = useState(false)
   const importRef = useRef<HTMLInputElement>(null)
 
   const tree = useMemo(() => {
@@ -51,15 +53,29 @@ export function ScenarioList({
       return next
     })
 
-  /** A folder is created empty and waits for scenarios to be dropped into it. */
-  const addFolder = async () => {
-    const name = prompt(t('newFolderPrompt'))?.trim()
-    if (!name) return
+  /** Where a new folder appears: next to what is selected, or at the top level. */
+  const creationParent = (): string => {
+    if (!selectedPath) return ''
+    return selectedPath.includes('/') ? selectedPath.slice(0, selectedPath.lastIndexOf('/') + 1) : ''
+  }
+
+  /** "New folder", "New folder 2", … — whatever is free in that parent. */
+  const freeName = (parent: string): string => {
+    const taken = new Set(folders.filter((f) => `${f}/`.startsWith(parent)).map((f) => f.slice(parent.length)))
+    const base = t('newFolderDefault')
+    if (!taken.has(base)) return base
+    for (let i = 2; ; i++) if (!taken.has(`${base} ${i}`)) return `${base} ${i}`
+  }
+
+  const submitNewFolder = async (parent: string, typed: string) => {
+    const name = typed.trim() || freeName(parent)
     try {
-      await createFolder(projectId, name)
+      await createFolder(projectId, `${parent}${name}`)
+      setCreating(null)
       onChanged()
-    } catch (e) {
-      alert((e as Error).message)
+    } catch {
+      // the row stays open and turns red: the name is taken
+      setCreateError(true)
     }
   }
 
@@ -126,7 +142,14 @@ export function ScenarioList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button className="icon-btn" title={t('newFolder')} onClick={() => void addFolder()}>
+        <button
+          className="icon-btn"
+          title={t('newFolder')}
+          onClick={() => {
+            setCreateError(false)
+            setCreating(creationParent())
+          }}
+        >
           <FolderPlus size={13} />
         </button>
         <button className="link" onClick={() => importRef.current?.click()}>
@@ -160,6 +183,11 @@ export function ScenarioList({
         onMove={(from, to) => void move(from, to)}
         onMoveFolder={(from, to) => void moveFolder(from, to)}
         onDeleteFolder={(folder) => void removeFolder(folder)}
+        creating={creating}
+        createError={createError}
+        onCreateSubmit={(parent, name) => void submitNewFolder(parent, name)}
+        onCreateCancel={() => setCreating(null)}
+        onCreateTyping={() => setCreateError(false)}
         onChanged={onChanged}
       />
     </nav>
@@ -181,7 +209,52 @@ interface ViewProps {
   onMove: (from: string, toFolder: string) => void
   onMoveFolder: (from: string, toFolder: string) => void
   onDeleteFolder: (folder: TreeFolder) => void
+  /** path of the folder a new one is being typed into, or null */
+  creating: string | null
+  createError: boolean
+  onCreateSubmit: (parent: string, name: string) => void
+  onCreateCancel: () => void
+  onCreateTyping: () => void
   onChanged: () => void
+}
+
+/** The row that a folder is born in: an input that is already focused. */
+function NewFolderRow({
+  parent,
+  depth,
+  error,
+  onSubmit,
+  onCancel,
+  onTyping,
+}: {
+  parent: string
+  depth: number
+  error: boolean
+  onSubmit: (parent: string, name: string) => void
+  onCancel: () => void
+  onTyping: () => void
+}) {
+  const [value, setValue] = useState('')
+  return (
+    <div className={`scn-folder scn-folder-new${error ? ' invalid' : ''}`} style={{ paddingLeft: 8 + depth * 12 }}>
+      <input
+        className="scn-folder-input"
+        autoFocus
+        value={value}
+        placeholder={t('newFolderDefault')}
+        title={error ? t('folderExists') : undefined}
+        onChange={(e) => {
+          setValue(e.target.value)
+          onTyping()
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSubmit(parent, value)
+          if (e.key === 'Escape') onCancel()
+        }}
+        onBlur={() => onSubmit(parent, value)}
+      />
+    </div>
+  )
 }
 
 /** What is being dragged: a scenario file or a whole folder. */
@@ -253,6 +326,16 @@ function FolderView(props: ViewProps) {
           onDragLeave={isRoot ? () => setOver(false) : undefined}
           onDrop={isRoot ? drop : undefined}
         >
+          {props.creating === folder.path && (
+            <NewFolderRow
+              parent={folder.path}
+              depth={folder.depth + 1}
+              error={props.createError}
+              onSubmit={props.onCreateSubmit}
+              onCancel={props.onCreateCancel}
+              onTyping={props.onCreateTyping}
+            />
+          )}
           {folder.folders.map((child) => (
             <FolderView key={child.path} {...props} folder={child} />
           ))}

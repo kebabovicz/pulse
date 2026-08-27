@@ -176,6 +176,8 @@ body {
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
   overflow-y: auto;
@@ -209,12 +211,49 @@ body {
   border: 1px solid transparent;
 }
 /* the folder a dragged scenario would land in */
+.scn-folder,
+.scn-root,
+.scenario-item {
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
 .drop-target {
   border-color: var(--accent);
   background: var(--tint-accent);
 }
+.scn-root.drop-target {
+  border: 1px dashed var(--accent);
+  border-radius: 2px;
+  margin: 0 8px 8px;
+}
+.scenario-item[draggable='true']:active,
+.scn-folder[draggable='true']:active {
+  opacity: 0.6;
+}
+
+/* a folder being named */
+.scn-folder-new {
+  padding: 2px 10px 2px 0;
+}
+.scn-folder-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-app);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  color: var(--text-primary);
+  font: 400 11px var(--font-ui);
+  padding: 3px 6px;
+}
+.scn-folder-new.invalid .scn-folder-input {
+  border-color: var(--fail);
+  color: var(--fail);
+}
+/* the empty space below the tree is the top level: drop something there to lift it out */
 .scn-root {
-  min-height: 8px;
+  flex: 1;
+  min-height: 60px;
 }
 .scn-folder-row {
   display: flex;

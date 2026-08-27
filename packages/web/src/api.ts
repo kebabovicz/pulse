@@ -105,6 +105,14 @@ export const saveVarDefaults = (project: string, path: string, values: Record<st
     body: JSON.stringify({ path, values }),
   })
 
+/** Renames the scenario itself; the file keeps its path, so its runs stay attached. */
+export const saveScenarioName = (project: string, path: string, name: string) =>
+  request<{ path: string; name: string }>(`/api/projects/${project}/scenario/name`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path, name }),
+  })
+
 export const importScenario = (project: string, path: string, content: string) =>
   post<{ path: string }>(`/api/projects/${project}/scenarios/import`, { path, content })
 

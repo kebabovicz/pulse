@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ProjectView, RunRecord, RunsGroup, ScenarioListItem } from '@pulse/shared'
 import {
   clearRuns,
@@ -28,6 +28,9 @@ import { StatsScreen } from './StatsScreen'
 type Tab = 'run' | 'history' | 'compare' | 'scenario' | 'stats'
 
 const lastScenarioKey = (projectId: string) => `pulse.scenario.${projectId}`
+const sidebarKey = 'pulse.sidebar'
+const SIDEBAR_MIN = 220
+const SIDEBAR_MAX = 720
 
 /**
  * Everything scoped to one project: scenario list, tabs and screens.
@@ -50,6 +53,37 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [progress, setProgress] = useState<Record<string, { done: number; total: number; finished?: boolean }>>({})
   // guards against a stale scenario load landing after a newer one
   const openRequest = useRef(0)
+  // width of the sidebar, dragged by its right edge; 0 means "as wide as its content"
+  const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem(sidebarKey)) || 0)
+  const layoutRef = useRef<HTMLDivElement>(null)
+
+  // without a stored width the sidebar sizes itself to its content; the number is
+  // still needed to place the drag handle, so it is measured once after mounting
+  useLayoutEffect(() => {
+    if (sidebarWidth) return
+    const width = layoutRef.current?.querySelector('.sidebar')?.getBoundingClientRect().width
+    if (width) setSidebarWidth(Math.round(width))
+  }, [sidebarWidth])
+
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = sidebarWidth
+    const move = (ev: PointerEvent) =>
+      setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, startWidth + ev.clientX - startX)))
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      document.body.classList.remove('resizing')
+      setSidebarWidth((width) => {
+        localStorage.setItem(sidebarKey, String(width))
+        return width
+      })
+    }
+    document.body.classList.add('resizing')
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
 
   const reloadScenarios = () =>
     fetchScenarios(project.id).then(({ scenarios, folders }) => {
@@ -208,7 +242,11 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const selected = scenarios.find((s) => s.path === selectedPath)
 
   return (
-    <div className="layout">
+    <div
+      className="layout"
+      ref={layoutRef}
+      style={sidebarWidth ? { gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr)` } : undefined}
+    >
       <ScenarioList
         projectId={project.id}
         scenarios={scenarios}
@@ -219,6 +257,17 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
         onRun={setModalPath}
         onRunFolder={(paths) => void runFolder(paths)}
         onChanged={() => void reloadScenarios()}
+      />
+      {/* drag the edge to give long scenario names more room; double click gives it back */}
+      <div
+        className="sidebar-resizer"
+        title={t('resizeSidebar')}
+        style={sidebarWidth ? { left: sidebarWidth } : undefined}
+        onPointerDown={startResize}
+        onDoubleClick={() => {
+          localStorage.removeItem(sidebarKey)
+          setSidebarWidth(0)
+        }}
       />
       <main className="main">
         <div className="tabs">

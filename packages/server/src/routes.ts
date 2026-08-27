@@ -7,7 +7,7 @@ import type { EventBus } from './events.js'
 import type { HealthMonitor } from './health.js'
 import type { Runner } from './runner.js'
 import type { StateStore } from './state.js'
-import { updateVarDefaults } from './scenarioEditor.js'
+import { updateScenarioName, updateVarDefaults } from './scenarioEditor.js'
 import { validateScenario, type ScenarioStore } from './scenarios.js'
 import { projectStats } from './stats.js'
 import { RunStore } from './storage.js'
@@ -169,6 +169,31 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       const check = validateScenario(fs.readFileSync(abs, 'utf8'))
       if ('error' in check) return reply.code(500).send({ message: `edit broke the scenario: ${check.error.message}` })
       return { updated }
+    },
+  )
+
+  /**
+   * Renames the scenario — the `name:` inside the file, which is what the
+   * sidebar and the run screen show. The path is untouched, so runs stay put.
+   */
+  app.put<{ Params: { id: string }; Body: { path: string; name: string } }>(
+    '/api/projects/:id/scenario/name',
+    (req, reply) => {
+      const project = findProject(req.params.id)
+      if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+      const rel = safeRel(req.body.path, project.scenariosDir)
+      const loaded = rel ? ctx.scenarios.get(project.id, rel) : undefined
+      if (!rel || !loaded) return reply.code(404).send({ message: 'no such scenario' })
+      if (!loaded.scenario) return reply.code(400).send({ message: 'scenario is invalid' })
+      const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
+      if (!name) return reply.code(400).send({ message: 'name must not be empty' })
+      if (name.length > 200) return reply.code(400).send({ message: 'name is longer than 200 characters' })
+
+      const abs = path.join(project.scenariosDir, rel)
+      updateScenarioName(abs, name)
+      const check = validateScenario(fs.readFileSync(abs, 'utf8'))
+      if ('error' in check) return reply.code(500).send({ message: `edit broke the scenario: ${check.error.message}` })
+      return { path: rel, name }
     },
   )
 

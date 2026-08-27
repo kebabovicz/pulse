@@ -19,3 +19,13 @@ export function updateVarDefaults(absPath: string, values: Record<string, string
   if (updated.length > 0) fs.writeFileSync(absPath, doc.toString())
   return { updated }
 }
+
+/**
+ * Renames the scenario itself — the `name:` a run screen and the sidebar show.
+ * The file keeps its path, so run history and the deploy flag stay attached.
+ */
+export function updateScenarioName(absPath: string, name: string): void {
+  const doc: Document = parseDocument(fs.readFileSync(absPath, 'utf8'))
+  doc.set('name', name)
+  fs.writeFileSync(absPath, doc.toString())
+}

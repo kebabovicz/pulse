@@ -1,38 +1,54 @@
 import { useRef, useState } from 'react'
-import { deleteScenario, renameScenario, toggleCi } from './api'
+import { deleteScenario, renameScenario, saveScenarioName, toggleCi } from './api'
 import { Check } from './icons'
 import { t } from './i18n'
 import { notify } from './ui/toast'
 import { useDismiss } from './ui/useDismiss'
 
-// Scenario actions: rename (the file name only — folders are changed by dragging) and delete.
+/**
+ * Scenario actions: rename the scenario (the `name:` inside the file, which is
+ * what the list shows), rename the file itself, and delete. Folders are changed
+ * by dragging.
+ */
 export function ScenarioMenu({
   project,
   path,
+  name,
   ci,
   onChanged,
   onClose,
 }: {
   project: string
   path: string
+  name: string
   ci: boolean
   onChanged: () => void
   onClose: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
-  const [renaming, setRenaming] = useState(false)
+  const [renaming, setRenaming] = useState<'scenario' | 'file' | null>(null)
   const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : ''
   const baseName = path.slice(folder.length).replace(/\.ya?ml$/, '')
-  const [newName, setNewName] = useState(baseName)
+  const [newName, setNewName] = useState(name)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useDismiss(rootRef, onClose)
 
+  const startRename = (mode: 'scenario' | 'file') => {
+    setNewName(mode === 'scenario' ? name : baseName)
+    setRenaming(mode)
+  }
+
   const submitRename = async () => {
     const trimmed = newName.trim()
-    if (trimmed && trimmed !== baseName) {
-      // the extension and the folder stay put: only the name is editable here
-      await renameScenario(project, path, `${folder}${trimmed}.yaml`).catch((e: Error) => notify(e.message))
+    const current = renaming === 'scenario' ? name : baseName
+    if (trimmed && trimmed !== current) {
+      const change =
+        renaming === 'scenario'
+          ? saveScenarioName(project, path, trimmed)
+          : // the extension and the folder stay put: only the file name is editable here
+            renameScenario(project, path, `${folder}${trimmed}.yaml`)
+      await change.catch((e: Error) => notify(e.message))
     }
     onChanged()
     onClose()
@@ -41,7 +57,7 @@ export function ScenarioMenu({
   if (renaming) {
     return (
       <div className="scenario-menu" ref={rootRef}>
-        <div className="modal-section">{t('renameTo')}</div>
+        <div className="modal-section">{renaming === 'scenario' ? t('renameTo') : t('renameFileTo')}</div>
         <input
           className="filter-input menu-input"
           autoComplete="off"
@@ -86,8 +102,11 @@ export function ScenarioMenu({
           </span>
         )}
       </button>
-      <button className="select-item" onClick={() => setRenaming(true)}>
+      <button className="select-item" onClick={() => startRename('scenario')}>
         {t('rename')}
+      </button>
+      <button className="select-item" onClick={() => startRename('file')}>
+        {t('renameFile')}
       </button>
       <button
         className="select-item bad"

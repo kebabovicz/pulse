@@ -606,7 +606,7 @@ function ScenarioRow({
       )}
       <button className="scenario-row" onClick={() => onOpen(item.path)}>
         <span className="scenario-title">
-          <ScenarioName label={fileLabel(item.path)} />
+          <ScenarioName label={item.valid ? item.name : fileLabel(item.path)} />
           <ScenarioStatus item={item} running={Boolean(run)} />
         </span>
         <ScenarioMeta item={item} />
@@ -623,6 +623,7 @@ function ScenarioRow({
         <ScenarioMenu
           project={projectId}
           path={item.path}
+          name={item.name}
           ci={item.ci}
           onChanged={onChanged}
           onClose={() => onMenu(null)}
@@ -685,6 +686,10 @@ function ScenarioMeta({ item }: { item: ScenarioListItem }) {
   return (
     <span className="meta">
       <span className="meta-main">
+        <span className="meta-file" title={item.path}>
+          {fileLabel(item.path)}
+        </span>
+        {' · '}
         {t('steps', item.stepCount)}
         {item.lastRun && ` · ${lastRunLabel(item.lastRun)}`}
       </span>

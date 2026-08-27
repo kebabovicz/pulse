@@ -170,9 +170,42 @@ body {
 /* ── layout ── */
 /* the sidebar takes what the deepest folder needs, up to a quarter of the window */
 .layout {
+  position: relative; /* anchors the resizer that sits on the sidebar edge */
   display: grid;
   grid-template-columns: minmax(260px, max-content) minmax(0, 1fr);
   min-height: 0;
+}
+
+/* the sidebar edge is draggable: a short mark shows it, the hit area is wider */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 9px;
+  margin-left: -4px;
+  cursor: col-resize;
+  z-index: 6;
+}
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 3px;
+  height: 26px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background-color 0.12s ease;
+}
+.sidebar-resizer:hover::after {
+  background: var(--accent);
+}
+/* while dragging, nothing else reacts to the pointer */
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .sidebar {
@@ -182,8 +215,8 @@ body {
   border-right: 1px solid var(--border);
   overflow-y: auto;
   overflow-x: hidden;
-  max-width: 25vw;
-  min-width: 260px;
+  max-width: none;
+  min-width: 0;
   padding: 8px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
@@ -468,6 +501,10 @@ body {
 .meta-ci {
   flex: none;
   padding-left: 5px;
+}
+/* the file name is secondary now: the scenario's own name leads the row */
+.meta-file {
+  color: var(--text-secondary);
 }
 .scenario-row .meta.invalid {
   color: var(--warn);

@@ -7,7 +7,6 @@ import { fileLabel } from './runState'
 import { ScenarioMenu } from './ScenarioMenu'
 import { buildTree, type TreeFolder } from './scenarioTree'
 import { useClipped } from './ui/useClipped'
-import { useDismiss } from './ui/useDismiss'
 import { notify } from './ui/toast'
 
 /** Sidebar: scenario search, import and the grouped scenario list. */
@@ -326,35 +325,6 @@ function NewFolderRow({
   )
 }
 
-/** Deleting a folder takes everything inside it, so the tree asks first. */
-function DeleteFolderConfirm({
-  folder,
-  onCancel,
-  onConfirm,
-}: {
-  folder: TreeFolder
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  const rootRef = useRef<HTMLDivElement>(null)
-  useDismiss(rootRef, onCancel)
-  const inside = folder.runnable.length + folder.folders.length
-  return (
-    <div className="scenario-menu delete-confirm" ref={rootRef}>
-      <div className="modal-section">{folder.path}</div>
-      <div className="delete-confirm-text">{inside > 0 ? t('confirmDeleteFolder') : t('confirmDelete')}</div>
-      <div className="modal-actions">
-        <button className="btn" onClick={onCancel}>
-          {t('cancel')}
-        </button>
-        <button className="btn danger" onClick={onConfirm}>
-          {t('deleteBtn')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 /** Rows are indented by their depth, and the guides are drawn from the same number. */
 const indent = (depth: number): React.CSSProperties => {
   const px = 8 + depth * 12
@@ -417,6 +387,7 @@ function FolderView(props: ViewProps) {
           onDragOver={accept}
           onDragLeave={leave}
           onDrop={drop}
+          onMouseLeave={() => setAsking(false)}
         >
           <button className="scn-folder-row" onClick={() => onToggleFolder(folder.path)}>
             <span className={`scn-folder-chevron${open ? ' open' : ''}`}>
@@ -430,18 +401,20 @@ function FolderView(props: ViewProps) {
               <Play size={12} />
             </button>
           )}
-          <button className="row-action" title={t('deleteFolder')} onClick={() => setAsking(true)}>
-            <Trash size={11} />
-          </button>
-          {asking && (
-            <DeleteFolderConfirm
-              folder={folder}
-              onCancel={() => setAsking(false)}
-              onConfirm={() => {
+          {asking ? (
+            <button
+              className="btn danger row-sure"
+              onClick={() => {
                 setAsking(false)
                 props.onDeleteFolder(folder)
               }}
-            />
+            >
+              <Trash size={11} /> {t('sure')}
+            </button>
+          ) : (
+            <button className="row-action" title={t('deleteFolder')} onClick={() => setAsking(true)}>
+              <Trash size={11} />
+            </button>
           )}
         </div>
       )}

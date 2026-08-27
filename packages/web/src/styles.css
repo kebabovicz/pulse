@@ -250,6 +250,14 @@ body {
   opacity: 0.35;
 }
 
+/* the trash asks in place, the way clearing history does */
+.row-sure {
+  padding: 1px 6px;
+  gap: 4px;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
 /* a folder being named */
 .scn-folder-new {
   padding: 2px 10px 2px 0;
@@ -1427,11 +1435,6 @@ input[type='checkbox']:checked::after {
     opacity: 0;
     transform: translateY(6px);
   }
-}
-
-.delete-confirm-text {
-  font-size: 11px;
-  color: var(--text-primary);
 }
 
 /* ── empty states, file fragment ── */

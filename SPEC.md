@@ -76,7 +76,45 @@ request:
   body: { phoneNumber: '{{phone}}' } # object/array is sent as JSON
   # body: "raw text"              # string is sent as-is; set contentType
   # contentType: text/plain
+  # multipart: { ... }            # file upload instead of body, see below
 ```
+
+### multipart
+
+A file upload — `multipart/form-data`. Use it instead of `body`; the two exclude
+each other, and `contentType` is not set by hand (the boundary comes from Pulse).
+
+```yaml
+request:
+  method: POST
+  path: /api/v1/documents
+  multipart:
+    title: '{{title}}' # a scalar is a plain field; interpolation works
+    published: true
+    scan: { file: fixtures/passport.pdf } # a file from the scenarios folder
+    photo:
+      file: fixtures/photo.jpg # path is relative to the project's scenarios folder
+      filename: avatar.jpg #   optional: how the field is named for the server
+      contentType: image/jpeg #   optional: guessed from the extension otherwise
+    meta:
+      text: '{"kind":"passport"}' # inline content instead of a file
+      filename: meta.json
+    thumb:
+      base64: 'iVBORw0KGgo…' # inline binary
+      filename: thumb.png
+    files: # a list repeats the field — many files under one name
+      - { file: fixtures/page-1.jpg }
+      - { file: fixtures/page-2.jpg }
+```
+
+- **Files live next to the scenarios**, in the project's scenarios folder
+  (a `fixtures/` subfolder is the usual place — it shows up as a group in the
+  sidebar). A path outside that folder, or a file that is not there, fails the
+  step with an explicit error, not the whole run. The limit is 64 MB per file.
+- **`filename` defaults** to the file name for `file:`, and to the field name for
+  `text:` and `base64:` — set it explicitly when the server checks the extension.
+- The run screen shows every part: name, file name, type and size, so a failed
+  upload tells you what actually went over the wire.
 
 ### expect
 
@@ -185,7 +223,8 @@ Clean up through the API only: Pulse deliberately has no database access.
 ## Interpolation
 
 - `{{name}}` — a variable from `vars` or `capture`. Works in `path`, `url`,
-  `query`, `headers`, `body`, `equals`, `matches`, `cookies.set`, and inside a
+  `query`, `headers`, `body`, `multipart` (field values, inline `text` and the
+  `file` path), `equals`, `matches`, `cookies.set`, and inside a
   JSONPath expression — both in a check's `path` and in a capture's `path`:
   `"$.items[?(@.id=='{{orderId}}')].name"`. In `matches` the value is inserted
   into the regex as-is, unescaped.

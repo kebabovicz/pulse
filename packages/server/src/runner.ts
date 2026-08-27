@@ -4,6 +4,7 @@ import {
   isRequestStep,
   type CaptureResult,
   type CheckResult,
+  type PartSnapshot,
   type RequestSnapshot,
   type RequestStep,
   type ResponseSnapshot,
@@ -18,6 +19,7 @@ import {
   type VarUsage,
 } from '@pulse/shared'
 import { evalChecks, failedLabels } from './checks.js'
+import { buildMultipart } from './multipart.js'
 import type { Project, Settings } from './config.js'
 import type { EventBus } from './events.js'
 import { stepRefs, type LoadedScenario } from './scenarios.js'
@@ -296,13 +298,47 @@ export class Runner {
       }
     }
 
+    // multipart is assembled as FormData: fetch writes the boundary into the
+    // content type itself, so a header set by hand would break the request
+    let form: FormData | undefined
+    let parts: PartSnapshot[] | undefined
+    if (step.request.multipart) {
+      headers.delete('content-type')
+      try {
+        const built = buildMultipart(step.request.multipart, ctx.project.scenariosDir, track)
+        form = built.form
+        parts = built.parts.map((p) => ({
+          ...p,
+          ...(p.value !== undefined && { value: space.mask(p.value) }),
+          ...(p.filename !== undefined && { filename: space.mask(p.filename) }),
+        }))
+      } catch (e) {
+        // a missing or oversized fixture is the scenario's fault, not the API's
+        return {
+          status: 'failed',
+          request: {
+            method: step.request.method,
+            url: space.mask(url.toString()),
+            headers: Object.fromEntries([...headers].map(([k, v]) => [k, space.mask(v)])),
+            body: null,
+            contentType: 'multipart/form-data',
+            substitutions,
+          },
+          response: null,
+          checks: [],
+          error: { kind: 'internal', message: e instanceof Error ? e.message : String(e) },
+        }
+      }
+    }
+
     const snapshot = {
       method: step.request.method,
       url: space.mask(url.toString()),
       headers: Object.fromEntries([...headers].map(([k, v]) => [k, space.mask(v)])),
       body: body === null ? null : space.mask(body),
-      contentType: headers.get('content-type'),
+      contentType: form ? 'multipart/form-data' : headers.get('content-type'),
       substitutions,
+      ...(parts && { parts }),
     }
 
     let res: Response
@@ -311,7 +347,7 @@ export class Runner {
       res = await fetch(url, {
         method: step.request.method,
         headers,
-        body,
+        body: form ?? body,
         redirect: 'manual',
         signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(timeoutMs)]),
       })
@@ -378,7 +414,8 @@ export class Runner {
           detail = `regex: ${spec.regex}`
         } else if (spec.json) {
           // a bare JSON scalar body: "guid" becomes guid instead of "guid"
-          value = typeof json === 'string' || typeof json === 'number' || typeof json === 'boolean' ? String(json) : text
+          value =
+            typeof json === 'string' || typeof json === 'number' || typeof json === 'boolean' ? String(json) : text
           detail = 'body as JSON'
         } else {
           value = text
@@ -434,6 +471,9 @@ function maskStep(
       url: space.mask(request.url),
       headers: Object.fromEntries(Object.entries(request.headers).map(([k, v]) => [k, space.mask(v)])),
       body: request.body === null ? null : space.mask(request.body),
+      ...(request.parts && {
+        parts: request.parts.map((p) => (p.value === undefined ? p : { ...p, value: space.mask(p.value) })),
+      }),
     },
     response: {
       ...response,

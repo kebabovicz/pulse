@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, ChevronsDownUp, ChevronsUpDown, Cross } from '../icons'
 import { t } from '../i18n'
 import { JsonTree, treeSize } from '../JsonTree'
+import type { PartSnapshot } from '@pulse/shared'
 import type { RunState, StepView } from '../runState'
 import { CopyButton, CopyValue } from '../ui/CopyButton'
 import { ClipValue } from '../ui/ClipValue'
@@ -9,12 +10,30 @@ import { colWidth, cols } from '../ui/columns'
 import { Seg, useViewMode } from '../ui/Seg'
 import { checkLabel } from './labels'
 
+const quote = (value: string): string => value.replaceAll("'", String.raw`'\''`)
+
+/** A file part as curl writes it: the fixture path for a file, the value for a field. */
+const curlPart = (p: PartSnapshot): string =>
+  p.value !== undefined
+    ? `-F '${quote(p.name)}=${quote(p.value)}'`
+    : `-F '${quote(p.name)}=@${quote(p.source === 'inline' || p.source === 'base64' ? (p.filename ?? p.name) : (p.source ?? p.name))};type=${p.contentType ?? ''};filename=${quote(p.filename ?? p.name)}'`
+
 function toCurl(r: NonNullable<StepView['result']>['request'] & object): string {
   const parts = [`curl -X ${r.method} '${r.url}'`]
   for (const [name, value] of Object.entries(r.headers)) parts.push(`-H '${name}: ${value}'`)
-  if (r.body !== null) parts.push(`--data '${r.body.replaceAll("'", String.raw`'\''`)}'`)
+  for (const part of r.parts ?? []) parts.push(curlPart(part))
+  if (r.body !== null) parts.push(`--data '${quote(r.body)}'`)
   return parts.join(' \\\n  ')
 }
+
+const bytes = (n: number): string =>
+  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`
+
+/** One multipart part: a plain field shows its value, a file its name, type and size. */
+const partValue = (p: PartSnapshot): string =>
+  p.value !== undefined
+    ? p.value
+    : [p.filename, p.contentType, p.sizeBytes !== undefined && bytes(p.sizeBytes), p.source].filter(Boolean).join(' · ')
 
 function prettyJson(text: string): string {
   try {
@@ -150,7 +169,11 @@ export function StepDetails({
           className="det-request"
           style={cols({
             'key-col': colWidth(
-              [...Object.keys(r.request.headers), ...bodyKeys(r.request.body)].map((k) => k + '  '),
+              [
+                ...Object.keys(r.request.headers),
+                ...bodyKeys(r.request.body),
+                ...(r.request.parts ?? []).map((p) => p.name),
+              ].map((k) => k + '  '),
               40,
               12,
             ),
@@ -181,6 +204,13 @@ export function StepDetails({
               {[
                 `${r.request.method} ${r.request.url}`,
                 ...Object.entries(r.request.headers).map(([n, v]) => `${n}: ${v}`),
+                ...(r.request.parts
+                  ? [
+                      `content-type: ${r.request.contentType ?? ''}`,
+                      '',
+                      ...r.request.parts.map((p) => `${p.name}: ${partValue(p)}`),
+                    ]
+                  : []),
                 ...(r.request.body !== null ? ['', r.request.body] : []),
               ].join('\n')}
             </pre>
@@ -193,6 +223,22 @@ export function StepDetails({
                     <span className="kv-origin">header</span>
                     <span className="kv-key">{name}</span>
                     <ClipValue className="mono" text={value} />
+                    {sub && (
+                      <span className="sub-badge">
+                        ← {sub.var}
+                        {sub.fromStep && ` · ${sub.fromStep}`}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+              {(r.request.parts ?? []).map((p, i) => {
+                const sub = r.request!.substitutions.find((s) => s.location === `multipart.${p.name}`)
+                return (
+                  <div key={`${p.name}-${i}`} className="kv-row">
+                    <span className="kv-origin">{p.value === undefined ? 'file' : 'part'}</span>
+                    <span className="kv-key">{p.name}</span>
+                    <ClipValue className="mono" text={partValue(p)} />
                     {sub && (
                       <span className="sub-badge">
                         ← {sub.var}

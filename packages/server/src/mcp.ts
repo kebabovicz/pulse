@@ -15,6 +15,9 @@ const BODY_CUT = 4000
 /** How long a synchronous run may take before the agent gets a run number instead. */
 const RUN_TIMEOUT_MS = 120_000
 
+/** A fixture travels through the agent's context as base64, so it stays small. */
+const MAX_FIXTURE_BYTES = 8 * 1024 * 1024
+
 const specPath = fileURLToPath(new URL('../../../SPEC.md', import.meta.url))
 const schemaPath = fileURLToPath(new URL('../../shared/scenario.schema.json', import.meta.url))
 
@@ -198,6 +201,34 @@ export function buildMcpServer(ctx: AppContext): McpServer {
       fs.mkdirSync(path.dirname(abs), { recursive: true })
       fs.writeFileSync(abs, yaml)
       return ok({ path: safe, steps: result.scenario.steps.length })
+    },
+  )
+
+  server.registerTool(
+    'fixture',
+    {
+      description:
+        'Put a file next to the scenarios so a multipart step can upload it (request.multipart: { scan: { file: "fixtures/scan.pdf" } }). The content is base64. Scenario files are written with the write tool, not this one.',
+      inputSchema: z.object({
+        project: z.string(),
+        path: z.string().describe('path relative to the scenarios folder, e.g. "fixtures/scan.pdf"'),
+        base64: z.string().describe('file content, base64 encoded'),
+      }),
+    },
+    ({ project, path: rel, base64 }) => {
+      const target = projectOf(project)
+      if (!target) return fail(`no project "${project}"`)
+      const safe = safeRel(rel, target.scenariosDir)
+      if (!safe) return fail('path must stay inside the scenarios folder')
+      if (/\.ya?ml$/.test(safe)) return fail('a .yaml file is a scenario — write it with the write tool')
+      const bytes = Buffer.from(base64, 'base64')
+      if (bytes.length === 0) return fail('empty file')
+      if (bytes.length > MAX_FIXTURE_BYTES)
+        return fail(`file is over the ${MAX_FIXTURE_BYTES / 1024 / 1024} MB limit for fixtures sent through MCP`)
+      const abs = path.join(target.scenariosDir, safe)
+      fs.mkdirSync(path.dirname(abs), { recursive: true })
+      fs.writeFileSync(abs, bytes)
+      return ok({ path: safe, sizeBytes: bytes.length })
     },
   )
 

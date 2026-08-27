@@ -19,7 +19,19 @@ export interface RequestSpec {
   headers?: Record<string, string>
   body?: Json
   contentType?: string
+  multipart?: Record<string, MultipartPart | MultipartPart[]>
 }
+
+/** A multipart/form-data part: a plain field value, or a file from one of three sources. */
+export type MultipartPart =
+  | string
+  | number
+  | boolean
+  | ({ filename?: string; contentType?: string } & (
+      | { file: string } // path inside the project's scenarios folder
+      | { text: string } // inline content, interpolated
+      | { base64: string } // inline binary
+    ))
 
 export type ValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null'
 
@@ -167,6 +179,17 @@ export interface RequestSnapshot {
   body: string | null
   contentType: string | null
   substitutions: Substitution[]
+  parts?: PartSnapshot[] // multipart request: the parts instead of the assembled bytes
+}
+
+/** One part of a sent multipart request, as the UI and the history show it. */
+export interface PartSnapshot {
+  name: string
+  value?: string // plain field: the value itself
+  filename?: string // file part
+  contentType?: string
+  sizeBytes?: number
+  source?: string // where the bytes came from: a fixture path, "inline" or "base64"
 }
 
 export interface ResponseSnapshot {

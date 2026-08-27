@@ -45,8 +45,9 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [modalPath, setModalPath] = useState<string | null>(null)
   // a run is on its way: the panel waits instead of claiming the scenario never ran
   const [loading, setLoading] = useState(false)
-  // steps finished out of the steps planned, for the bar under the sidebar row
-  const [progress, setProgress] = useState<{ path: string; done: number; total: number } | null>(null)
+  // steps finished out of the steps planned, per scenario: with concurrency on,
+  // several rows fill at once
+  const [progress, setProgress] = useState<Record<string, { done: number; total: number }>>({})
   // guards against a stale scenario load landing after a newer one
   const openRequest = useRef(0)
 
@@ -72,11 +73,15 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
           // other runs, so an event arriving before React re-renders is not lost
           setRunState((prev) => (prev ? reduce(prev, event) : prev))
           // the sidebar follows every run, including the ones nobody is watching
-          if (event.type === 'run-started') setProgress({ path: event.scenario, done: 0, total: event.steps.length })
+          if (event.type === 'run-started')
+            setProgress((p) => ({ ...p, [event.scenario]: { done: 0, total: event.steps.length } }))
           if (event.type === 'step-finished')
-            setProgress((p) => (p && p.path === event.scenario ? { ...p, done: p.done + 1 } : p))
+            setProgress((p) => {
+              const entry = p[event.scenario]
+              return entry ? { ...p, [event.scenario]: { ...entry, done: entry.done + 1 } } : p
+            })
           if (event.type === 'run-finished') {
-            setProgress(null)
+            setProgress(({ [event.scenario]: _done, ...rest }) => rest)
             void reloadScenarios() // the row picks up the outcome of the run that just ended
           }
         }
@@ -142,30 +147,22 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     setTab('compare')
   }
 
-  /** Resolves when the current run of this project reports it finished. */
-  const waitForRunEnd = () =>
-    new Promise<void>((resolve) => {
-      const off = subscribeToEvents((event) => {
-        if (event.project !== project.id || event.type !== 'run-finished') return
-        off()
-        resolve()
-      })
-    })
-
   /**
-   * A folder runs its scenarios one after another — the runner takes one run per
-   * project at a time, and a queue here keeps the order the sidebar shows.
+   * Every scenario of the folder goes to the runner at once: it starts as many
+   * as the project's concurrency allows and queues the rest. The screen stays
+   * where the reader left it — the sidebar rows carry the progress.
    */
   const runFolder = async (paths: string[]) => {
-    for (const path of paths) {
-      try {
-        await startRun(project.id, path, {})
-      } catch (e) {
-        return notify((e as Error).message)
-      }
-      // the screen stays where the reader left it; the sidebar row fills instead
-      await waitForRunEnd()
-    }
+    const failures = await Promise.all(
+      paths.map((path) =>
+        startRun(project.id, path, {}).then(
+          () => null,
+          (e: Error) => e.message,
+        ),
+      ),
+    )
+    const failed = failures.find(Boolean)
+    if (failed) notify(failed)
   }
 
   const launch = async (path: string, vars: Record<string, string>) => {
@@ -210,8 +207,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
         scenarios={scenarios}
         folders={folders}
         selectedPath={selectedPath}
-        runningPath={progress?.path ?? null}
-        runProgress={progress ? progress.done / Math.max(progress.total, 1) : 0}
+        running={progress}
         onOpen={(path) => void openScenario(path)}
         onRun={setModalPath}
         onRunFolder={(paths) => void runFolder(paths)}

@@ -28,6 +28,11 @@ import { RunStore } from './storage.js'
 import { MASK, TemplateSpace } from './template.js'
 import { parseDuration } from './util.js'
 
+interface Slots {
+  running: number
+  waiting: (() => void)[]
+}
+
 interface ActiveRun {
   run: number
   scenario: string
@@ -49,7 +54,9 @@ interface RunCtx {
 }
 
 export class Runner {
-  private active = new Map<string, ActiveRun>()
+  /** every run of a project that has started or is waiting for a slot */
+  private active = new Map<string, Map<string, ActiveRun>>()
+  private slots = new Map<string, Slots>()
   private cache = new SharedCache()
 
   constructor(
@@ -59,17 +66,19 @@ export class Runner {
   ) {}
 
   isBusy(projectId: string): boolean {
-    return this.active.has(projectId)
+    return (this.active.get(projectId)?.size ?? 0) > 0
   }
 
-  current(projectId: string): RunRecord | undefined {
-    return this.active.get(projectId)?.record
+  /** Runs of a project going right now — several of them when concurrency allows. */
+  current(projectId: string): RunRecord[] {
+    return [...(this.active.get(projectId)?.values() ?? [])].map((a) => a.record)
   }
 
-  stop(projectId: string): boolean {
-    const active = this.active.get(projectId)
-    active?.abort.abort()
-    return Boolean(active)
+  /** Stops every run of the project; returns how many were told to stop. */
+  stop(projectId: string): number {
+    const runs = [...(this.active.get(projectId)?.values() ?? [])]
+    for (const run of runs) run.abort.abort()
+    return runs.length
   }
 
   /** Starts a run in the background and returns its number immediately. */
@@ -82,7 +91,6 @@ export class Runner {
     trigger?: 'ci',
   ): { run: number; finished: Promise<RunRecord> } {
     if (!loaded.scenario) throw new Error('scenario is invalid')
-    if (this.active.has(project.id)) throw new Error('a run is already in progress')
 
     const scenario = loaded.scenario
     const relPath = loaded.summary.path
@@ -99,7 +107,7 @@ export class Runner {
       scenarioHash: loaded.summary.hash,
       host: hostName,
       trigger,
-      startedAt: new Date().toISOString(),
+      startedAt: '', // stamped when the run actually starts, not when it queues
       finishedAt: '',
       status: 'error',
       durationMs: 0,
@@ -107,11 +115,40 @@ export class Runner {
       varUsage: buildVarUsage(scenario),
       steps: buildPlan(scenario).map((plan) => ({ ...plan, stepId: plan.id, status: 'skipped' as const })),
     }
-    this.active.set(project.id, { run, scenario: relPath, abort, record })
-    const finished = this.execute(project, baseUrl, scenario, loaded.raw, record, space, abort.signal)
+    // run numbers count per scenario, so two scenarios share number 9: the key
+    // has to carry the path as well or one run would evict the other
+    const key = `${relPath}#${run}`
+    const running = this.active.get(project.id) ?? new Map<string, ActiveRun>()
+    this.active.set(project.id, running)
+    running.set(key, { run, scenario: relPath, abort, record })
+    // the run is accepted at once and waits its turn when the project is full,
+    // so a suite can be handed over in one go instead of one scenario at a time
+    const finished = this.withSlot(project, () =>
+      this.execute(project, baseUrl, scenario, loaded.raw, record, space, abort.signal),
+    )
       .then(() => record)
-      .finally(() => this.active.delete(project.id))
+      .finally(() => {
+        running.delete(key)
+        if (running.size === 0) this.active.delete(project.id)
+      })
     return { run, finished }
+  }
+
+  /** Holds one of the project's slots for the duration of the run. */
+  private async withSlot(project: Project, run: () => Promise<void>): Promise<void> {
+    const limit = Math.max(1, project.concurrency)
+    const slots = this.slots.get(project.id) ?? { running: 0, waiting: [] }
+    this.slots.set(project.id, slots)
+    if (slots.running >= limit) await new Promise<void>((resolve) => slots.waiting.push(resolve))
+    slots.running++
+    try {
+      await run()
+    } finally {
+      const next = slots.waiting.shift()
+      slots.running--
+      // hand the slot straight over, so a queued run does not race a new one
+      if (next) next()
+    }
   }
 
   private async execute(
@@ -123,6 +160,8 @@ export class Runner {
     space: TemplateSpace,
     signal: AbortSignal,
   ): Promise<void> {
+    // a run that waited for a free slot starts now, not when it was accepted
+    record.startedAt = new Date().toISOString()
     // runTimeout aborts the main steps; a manual stop (signal) aborts everything
     const runAbort = new AbortController()
     const timer = setTimeout(() => runAbort.abort(), project.runTimeoutMs)

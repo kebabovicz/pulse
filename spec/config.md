@@ -15,6 +15,7 @@ settings: # optional
     # the run is marked failed with a timeout message,
     # cleanup still executes
   bodyLimit: 256kb # stored response body cap, longer bodies are truncated
+  concurrency: 1 # runs of one project at a time (1–16); the rest queue
 
 projects:
   - id:
@@ -30,7 +31,14 @@ projects:
     healthPath: /health # optional; without it the active host root is probed
     stepTimeout: 15s # optional per-project override
     runTimeout: 10m # optional per-project override
+    concurrency: 4 # optional per-project override
 ```
+
+`concurrency` is 1 by default: scenarios that create and delete the same
+records step on each other, and a suite that runs them one at a time is the
+safe assumption. Raise it where the scenarios are independent — a folder run
+and the deploy suite hand every scenario to the runner at once, and it lets
+through as many as this number allows.
 
 Hosts can also be added from the UI ("add host…" in the host menu) — those are
 stored in `state.json`, not in this file. Switching hosts does not touch

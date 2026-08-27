@@ -308,7 +308,6 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       const loaded = ctx.scenarios.get(project.id, req.body.scenario)
       if (!loaded) return reply.code(404).send({ message: `no scenario "${req.body.scenario}"` })
       if (!loaded.scenario) return reply.code(400).send({ message: 'scenario is invalid', error: loaded.summary.error })
-      if (ctx.runner.isBusy(project.id)) return reply.code(409).send({ message: 'a run is already in progress' })
       const { run, finished } = ctx.runner.start(
         project,
         loaded,
@@ -376,9 +375,6 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     async (req, reply) => {
       const project = findProject(req.params.id)
       if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
-      if (ctx.runner.isBusy(project.id))
-        return reply.code(409).send({ message: 'a run is in progress — try again later' })
-
       const hostName = req.body?.host ?? activeHost(project)
       const hostUrl = mergedHosts(project)[hostName]
       if (!hostUrl) return reply.code(400).send({ message: `no host "${hostName}"` })
@@ -387,23 +383,24 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       if (paths.length === 0)
         return reply.code(400).send({ message: 'deploy suite is empty: mark scenarios in the UI or pass scenarios[]' })
 
-      const results: { scenario: string; run?: number; status: string; durationMs?: number; failedStep?: string }[] = []
-      for (const path of paths) {
-        const loaded = ctx.scenarios.get(project.id, path)
-        if (!loaded?.scenario) {
-          results.push({ scenario: path, status: loaded ? 'invalid' : 'missing' })
-          continue
-        }
-        const { run, finished } = ctx.runner.start(project, loaded, {}, hostName, hostUrl, 'ci')
-        const record = await finished
-        results.push({
-          scenario: path,
-          run,
-          status: record.status,
-          durationMs: record.durationMs,
-          failedStep: record.failedStep,
-        })
-      }
+      // every scenario is handed to the runner at once; it lets through as many
+      // as the project's concurrency allows and queues the rest
+      type CiResult = { scenario: string; run?: number; status: string; durationMs?: number; failedStep?: string }
+      const results: CiResult[] = await Promise.all(
+        paths.map(async (path): Promise<CiResult> => {
+          const loaded = ctx.scenarios.get(project.id, path)
+          if (!loaded?.scenario) return { scenario: path, status: loaded ? 'invalid' : 'missing' }
+          const { run, finished } = ctx.runner.start(project, loaded, {}, hostName, hostUrl, 'ci')
+          const record = await finished
+          return {
+            scenario: path,
+            run,
+            status: record.status,
+            durationMs: record.durationMs,
+            failedStep: record.failedStep,
+          }
+        }),
+      )
       const ok = results.every((r) => r.status === 'passed')
       return reply.code(ok ? 200 : 422).send({ ok, host: hostName, results })
     },
@@ -413,9 +410,11 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     stopped: ctx.runner.stop(req.params.id),
   }))
 
-  app.get<{ Params: { id: string } }>('/api/projects/:id/current-run', (req) => ({
-    run: ctx.runner.current(req.params.id) ?? null,
-  }))
+  // runs going right now: several of them when the project allows concurrency
+  app.get<{ Params: { id: string } }>('/api/projects/:id/current-run', (req) => {
+    const runs = ctx.runner.current(req.params.id)
+    return { run: runs[0] ?? null, runs }
+  })
 
   // clear history: body {scenario} for one scenario, empty body for the whole project
   app.post<{ Params: { id: string }; Body: { scenario?: string } }>('/api/projects/:id/runs/clear', (req, reply) => {

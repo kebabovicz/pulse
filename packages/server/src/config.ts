@@ -8,6 +8,7 @@ export interface Settings {
   stepTimeoutMs: number
   runTimeoutMs: number
   bodyLimitBytes: number
+  concurrency: number // runs of one project at a time; the rest wait their turn
 }
 
 export interface Project {
@@ -18,6 +19,7 @@ export interface Project {
   healthPath?: string
   stepTimeoutMs: number
   runTimeoutMs: number
+  concurrency: number
 }
 
 export interface AppConfig {
@@ -54,6 +56,7 @@ export function loadConfig(dataDir: string): AppConfig {
     stepTimeoutMs: parse('stepTimeout', rawSettings.stepTimeout, '10s', parseDuration),
     runTimeoutMs: parse('runTimeout', rawSettings.runTimeout, '5m', parseDuration),
     bodyLimitBytes: parse('bodyLimit', rawSettings.bodyLimit, '256kb', parseSize),
+    concurrency: readConcurrency(rawSettings.concurrency, 1, 'settings.concurrency', errors),
   }
 
   const projects: Project[] = []
@@ -107,7 +110,24 @@ export function loadConfig(dataDir: string): AppConfig {
         typeof p.runTimeout === 'string'
           ? parse(`${label}.runTimeout`, p.runTimeout, '5m', parseDuration)
           : settings.runTimeoutMs,
+      concurrency: readConcurrency(p.concurrency, settings.concurrency, `${label}.concurrency`, errors),
     })
   }
   return { settings, projects, errors }
+}
+
+/**
+ * How many runs of one project may go at once. One by default: scenarios that
+ * touch the same records step on each other, and that is the safe assumption.
+ */
+const MAX_CONCURRENCY = 16
+
+function readConcurrency(raw: unknown, fallback: number, label: string, errors: string[]): number {
+  if (raw === undefined) return fallback
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 1 || n > MAX_CONCURRENCY) {
+    errors.push(`${label}: expected a whole number from 1 to ${MAX_CONCURRENCY}`)
+    return fallback
+  }
+  return n
 }

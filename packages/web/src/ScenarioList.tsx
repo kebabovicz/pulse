@@ -15,8 +15,7 @@ export function ScenarioList({
   scenarios,
   folders,
   selectedPath,
-  runningPath,
-  runProgress,
+  running,
   onOpen,
   onRun,
   onRunFolder,
@@ -26,9 +25,8 @@ export function ScenarioList({
   scenarios: ScenarioListItem[]
   folders: string[]
   selectedPath: string | null
-  runningPath: string | null
-  /** share of the running scenario's steps that finished, 0 when nothing runs */
-  runProgress: number
+  /** steps finished out of steps planned, for every run going right now */
+  running: Record<string, { done: number; total: number }>
   onOpen: (path: string) => void
   onRun: (path: string) => void
   onRunFolder: (paths: string[]) => void
@@ -203,8 +201,7 @@ export function ScenarioList({
         onToggleFolder={toggleFolder}
         projectId={projectId}
         selectedPath={selectedPath}
-        runningPath={runningPath}
-        runProgress={runProgress}
+        running={running}
         menuPath={menuPath}
         onMenu={setMenuPath}
         onOpen={onOpen}
@@ -294,8 +291,7 @@ interface ViewProps {
   onToggleFolder: (path: string) => void
   projectId: string
   selectedPath: string | null
-  runningPath: string | null
-  runProgress: number
+  running: Record<string, { done: number; total: number }>
   menuPath: string | null
   onMenu: (path: string | null) => void
   onOpen: (path: string) => void
@@ -517,8 +513,7 @@ function ScenarioRow({
   folder,
   projectId,
   selectedPath,
-  runningPath,
-  runProgress,
+  running,
   menuPath,
   onMenu,
   onOpen,
@@ -549,6 +544,8 @@ function ScenarioRow({
     if (dragged) onMoveFolder(dragged, folder.path)
   }
 
+  const run = running[item.path]
+
   return (
     <div
       className={`scenario-item${item.path === selectedPath ? ' selected' : ''} ${outcomeClass(item)}${
@@ -569,13 +566,13 @@ function ScenarioRow({
       }}
       onDrop={drop}
     >
-      {item.path === runningPath && (
-        <span className="scn-progress" style={{ width: `${Math.round(runProgress * 100)}%` }} />
+      {run && (
+        <span className="scn-progress" style={{ width: `${Math.round((run.done / Math.max(run.total, 1)) * 100)}%` }} />
       )}
       <button className="scenario-row" onClick={() => onOpen(item.path)}>
         <span className="scenario-title">
           <ScenarioName label={fileLabel(item.path)} />
-          <ScenarioStatus item={item} running={item.path === runningPath} />
+          <ScenarioStatus item={item} running={Boolean(run)} />
         </span>
         <ScenarioMeta item={item} />
       </button>

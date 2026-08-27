@@ -13,6 +13,8 @@ import { projectStats } from './stats.js'
 import { RunStore } from './storage.js'
 
 export interface AppContext {
+  /** whether the server was started with a password — the UI shows a sign-out button */
+  authEnabled: boolean
   config: () => AppConfig
   scenarios: ScenarioStore
   health: HealthMonitor
@@ -64,7 +66,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       baseUrl: baseUrl(p),
       health: ctx.health.get(p.id),
     }))
-    return { projects: views, errors, configPath: configPath(ctx.dataDir) }
+    return { projects: views, errors, configPath: configPath(ctx.dataDir), authEnabled: ctx.authEnabled }
   })
 
   // switch the active host of a project (persisted, re-checks availability at once)

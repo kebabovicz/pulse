@@ -39,7 +39,7 @@ export interface ScenarioVar {
 export const login = (user: string, password: string) => post<{ ok: boolean }>('/api/login', { user, password })
 
 export const fetchProjects = () =>
-  request<{ projects: ProjectView[]; errors: string[]; configPath: string }>('/api/projects')
+  request<{ projects: ProjectView[]; errors: string[]; configPath: string; authEnabled: boolean }>('/api/projects')
 
 export const fetchScenarios = (project: string) =>
   request<{ scenarios: ScenarioListItem[] }>(`/api/projects/${project}/scenarios`)
@@ -68,6 +68,8 @@ export const clearRuns = (project: string, scenario?: string) =>
   post<{ cleared: string }>(`/api/projects/${project}/runs/clear`, scenario ? { scenario } : {})
 
 export const fetchAllRuns = (project: string) => request<{ groups: RunsGroup[] }>(`/api/projects/${project}/all-runs`)
+
+export const logout = () => request<{ ok: true }>('/api/logout', { method: 'POST' })
 
 export const fetchStats = (project: string, window: number, host: string | null) =>
   request<ProjectStats>(`/api/projects/${project}/stats?window=${window}&host=${host ?? 'all'}`)

@@ -18,6 +18,7 @@ import { StateStore } from './state.js'
 import { RunStore } from './storage.js'
 
 const dataDir = process.env.PULSE_DATA_DIR ?? '/data'
+const auth = new Auth(dataDir)
 const port = Number(process.env.PULSE_PORT ?? 7100)
 
 let config = loadConfig(dataDir)
@@ -28,7 +29,17 @@ const runs = new RunStore(dataDir)
 const runner = new Runner(bus, runs, () => config.settings)
 const state = new StateStore(dataDir)
 
-const appCtx: AppContext = { config: () => config, scenarios, health, bus, runner, runs, dataDir, state }
+const appCtx: AppContext = {
+  authEnabled: auth.enabled,
+  config: () => config,
+  scenarios,
+  health,
+  bus,
+  runner,
+  runs,
+  dataDir,
+  state,
+}
 const apply = async () => {
   await scenarios.start(config.projects)
   health.start(
@@ -49,7 +60,6 @@ const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
 await app.register(fastifyCookie)
 
 // single account from the environment; without PULSE_PASSWORD auth is disabled
-const auth = new Auth(dataDir)
 const SESSION_COOKIE = 'pulse_session'
 const YEAR = 60 * 60 * 24 * 365
 
@@ -58,6 +68,12 @@ app.post<{ Body: { user?: string; password?: string } }>('/api/login', (req, rep
   const token = auth.login(req.body?.user ?? '', req.body?.password ?? '')
   if (!token) return reply.code(401).send({ message: 'wrong login or password' })
   reply.setCookie(SESSION_COOKIE, token, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: YEAR })
+  return { ok: true }
+})
+
+app.post('/api/logout', (req, reply) => {
+  auth.logout(req.cookies[SESSION_COOKIE])
+  reply.clearCookie(SESSION_COOKIE, { path: '/' })
   return { ok: true }
 })
 

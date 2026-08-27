@@ -5,7 +5,7 @@ import { t } from './i18n'
 
 // Login screen, shown when the server runs with PULSE_PASSWORD set.
 export function Login() {
-  const [user, setUser] = useState('pulse')
+  const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -31,7 +31,15 @@ export function Login() {
         </div>
         <label className="var-row login-row">
           <span className="mono muted">{t('loginField')}</span>
-          <input value={user} autoFocus onChange={(e) => setUser(e.target.value)} />
+          <input
+            value={user}
+            autoFocus
+            name="pulse-login"
+            autoComplete="off"
+            data-1p-ignore="true"
+            data-lpignore="true"
+            onChange={(e) => setUser(e.target.value)}
+          />
         </label>
         <label className="var-row login-row">
           <span className="mono muted">{t('passwordField')}</span>

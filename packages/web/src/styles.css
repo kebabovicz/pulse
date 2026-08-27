@@ -105,6 +105,9 @@ body {
 .header .lang-seg {
   margin-left: 12px;
 }
+.header-logout {
+  margin-left: 4px;
+}
 
 /* ── project select ── */
 .select {
@@ -261,7 +264,8 @@ body {
   display: flex;
   align-items: center;
 }
-.scenario-item.selected {
+.scenario-item.selected,
+.scenario-item:hover {
   background: var(--bg-elev);
 }
 /* a rule on the edge carries the alarm: the row itself stays a list row */
@@ -298,9 +302,7 @@ body {
   color: var(--text-primary);
   font-weight: 600;
 }
-.scenario-row:hover {
-  background: var(--bg-elev);
-}
+
 
 .scenario-title {
   display: flex;

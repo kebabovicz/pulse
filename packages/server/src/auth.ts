@@ -44,6 +44,13 @@ export class Auth {
     return token
   }
 
+  /** Ends one session; the other browsers of the same user keep theirs. */
+  logout(token: string | undefined): void {
+    if (!token) return
+    this.tokens.delete(sha256(token))
+    this.persist()
+  }
+
   verify(token: string | undefined): boolean {
     return token !== undefined && this.tokens.has(sha256(token))
   }

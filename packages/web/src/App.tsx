@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { ProjectView } from '@pulse/shared'
 import { About } from './About'
-import { ApiError, fetchProjects } from './api'
+import { ApiError, fetchProjects, logout } from './api'
 import { subscribeToEvents } from './eventStream'
 import { HostMenu } from './HostMenu'
-import { PulseIcon } from './icons'
+import { PulseIcon, SignOut } from './icons'
 import { dateLocale, lang, setLang, t } from './i18n'
 import { Login } from './Login'
 import { ProjectWorkspace } from './ProjectWorkspace'
@@ -20,15 +20,17 @@ export function App() {
   const [projectId, setProjectId] = useState<string | null>(() => localStorage.getItem(PROJECT_KEY))
   const [configPath, setConfigPath] = useState('')
   const [needLogin, setNeedLogin] = useState(false)
+  const [authEnabled, setAuthEnabled] = useState(false)
   const [authed, setAuthed] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
 
   const project = projects.find((p) => p.id === projectId) ?? projects[0]
 
   const reloadProjects = () =>
-    fetchProjects().then(({ projects, configPath }) => {
+    fetchProjects().then(({ projects, configPath, authEnabled }) => {
       setProjects(projects)
       setConfigPath(configPath)
+      setAuthEnabled(authEnabled)
     })
 
   useEffect(() => {
@@ -96,6 +98,15 @@ export function App() {
             </button>
           ))}
         </span>
+        {authEnabled && (
+          <button
+            className="icon-btn header-logout"
+            title={t('signOut')}
+            onClick={() => void logout().then(() => location.reload())}
+          >
+            <SignOut size={13} />
+          </button>
+        )}
       </header>
       {project ? (
         <ProjectWorkspace key={project.id} project={project} />

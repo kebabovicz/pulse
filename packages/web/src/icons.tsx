@@ -38,6 +38,12 @@ export const Minus = (p: { size?: number }) => (
   </Svg>
 )
 
+export const SignOut = (p: { size?: number }) => (
+  <Svg {...p}>
+    <path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 16l4-4-4-4M20 12H9" />
+  </Svg>
+)
+
 export const Warning = (p: { size?: number }) => (
   <Svg {...p}>
     <path d="M12 4 2.5 20h19L12 4Z" />

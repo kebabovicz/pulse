@@ -215,7 +215,8 @@ body {
 .scenario-item {
   transition:
     background-color 0.12s ease,
-    border-color 0.12s ease;
+    border-color 0.12s ease,
+    opacity 0.15s ease;
 }
 .drop-target {
   outline: 1px solid var(--accent);
@@ -233,9 +234,10 @@ body {
   outline-offset: -6px;
   background: none;
 }
-.scenario-item[draggable='true']:active,
-.scn-folder[draggable='true']:active {
-  opacity: 0.6;
+/* the row being carried dims where it came from until it lands */
+.scenario-item.dragging,
+.scn-folder.dragging {
+  opacity: 0.35;
 }
 
 /* a folder being named */
@@ -352,7 +354,6 @@ body {
   color: var(--text-primary);
   font-weight: 600;
 }
-
 
 .scenario-title {
   display: flex;
@@ -1895,7 +1896,6 @@ input[type='search']::-webkit-search-cancel-button {
 .var-generators-hint {
   margin-left: 4px;
 }
-
 
 /* ── statistics tab ── */
 .stats-toolbar {

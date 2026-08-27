@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ScenarioListItem } from '@pulse/shared'
 import { createFolder, deleteFolder, importScenario, renameScenario } from './api'
 import { Check, ChevronDown, Cross, FolderPlus, MoreVertical, Play, Spinner, Trash, Upload, Warning } from './icons'
@@ -36,6 +36,8 @@ export function ScenarioList({
   const [creating, setCreating] = useState<string | null>(null)
   const [createError, setCreateError] = useState(false)
   const importRef = useRef<HTMLInputElement>(null)
+  const navRef = useRef<HTMLElement>(null)
+  const slide = useSlide(navRef, scenarios, folders)
 
   const tree = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -50,6 +52,15 @@ export function ScenarioList({
       const next = new Set(prev)
       if (next.has(path)) next.delete(path)
       else next.add(path)
+      return next
+    })
+
+  /** A drop opens the folder it landed in, so the moved row stays in sight. */
+  const expand = (path: string) =>
+    setCollapsed((prev) => {
+      if (!prev.has(path)) return prev
+      const next = new Set(prev)
+      next.delete(path)
       return next
     })
 
@@ -84,6 +95,8 @@ export function ScenarioList({
     const base = from.split('/').pop()!
     const to = `${toFolder}${base}`
     if (to === from) return
+    slide.expect(from, to)
+    expand(toFolder)
     try {
       await renameScenario(projectId, from, to)
       onChanged()
@@ -110,6 +123,8 @@ export function ScenarioList({
     const name = from.replace(/\/$/, '').split('/').pop()!
     const to = `${toFolder}${name}`
     if (to + '/' === from || toFolder.startsWith(from)) return
+    slide.expect(from, `${to}/`)
+    expand(toFolder)
     try {
       await renameScenario(projectId, from.replace(/\/$/, ''), to)
       onChanged()
@@ -127,7 +142,7 @@ export function ScenarioList({
   }
 
   return (
-    <nav className="sidebar">
+    <nav className="sidebar" ref={navRef}>
       <div className="sidebar-tools">
         <input
           className="filter-input sidebar-search"
@@ -192,6 +207,61 @@ export function ScenarioList({
       />
     </nav>
   )
+}
+
+const SLIDE_MS = 180
+/** A rename reaches the list in steps — file gone, file back — so the snapshot outlives the first of them. */
+const SLIDE_WINDOW_MS = 2000
+
+/**
+ * A moved row is still the same row, so it travels instead of blinking out and
+ * back: every position is measured before the move, and afterwards each row that
+ * ended up elsewhere is animated from where it used to be.
+ */
+function useSlide(root: React.RefObject<HTMLElement | null>, scenarios: ScenarioListItem[], folders: string[]) {
+  const before = useRef<{ rects: Map<string, DOMRect>; from: string; to: string; at: number } | null>(null)
+
+  const rows = () => [...(root.current?.querySelectorAll<HTMLElement>('[data-node]') ?? [])]
+
+  useLayoutEffect(() => {
+    const snapshot = before.current
+    if (!snapshot) return
+    if (performance.now() - snapshot.at > SLIDE_WINDOW_MS) {
+      before.current = null
+      return
+    }
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    for (const el of rows()) {
+      const id = el.dataset.node ?? ''
+      const was = snapshot.rects.get(id) ?? snapshot.rects.get(formerPath(id, snapshot))
+      if (!was) continue
+      const now = el.getBoundingClientRect()
+      const dx = was.left - now.left
+      const dy = was.top - now.top
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue
+      for (const running of el.getAnimations()) running.cancel()
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], {
+        duration: SLIDE_MS,
+        easing: 'ease-out',
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenarios, folders])
+
+  return {
+    /** Call right before a move: it records where every row sits and what is about to be renamed. */
+    expect(from: string, to: string) {
+      const rects = new Map(rows().map((el) => [el.dataset.node ?? '', el.getBoundingClientRect()]))
+      before.current = { rects, from, to, at: performance.now() }
+    },
+  }
+}
+
+/** Where a row lived before the move: the moved row itself, or anything inside a moved folder. */
+function formerPath(id: string, rename: { from: string; to: string }): string {
+  if (id === rename.to) return rename.from
+  if (rename.to.endsWith('/') && id.startsWith(rename.to)) return rename.from + id.slice(rename.to.length)
+  return id
 }
 
 interface ViewProps {
@@ -265,6 +335,7 @@ const DRAG_FOLDER = 'application/x-pulse-folder'
 function FolderView(props: ViewProps) {
   const { folder, collapsed, onToggleFolder, onRunFolder, onMove, onMoveFolder } = props
   const [over, setOver] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const open = !collapsed.has(folder.path)
   const isRoot = folder.path === ''
 
@@ -296,14 +367,18 @@ function FolderView(props: ViewProps) {
     <>
       {!isRoot && (
         <div
-          className={`scn-folder${over ? ' drop-target' : ''}`}
+          className={`scn-folder${over ? ' drop-target' : ''}${dragging ? ' dragging' : ''}`}
           style={{ paddingLeft: 8 + folder.depth * 12 }}
+          data-node={folder.path}
           draggable
           onDragStart={(e) => {
             e.stopPropagation()
             e.dataTransfer.setData(DRAG_FOLDER, folder.path)
             e.dataTransfer.effectAllowed = 'move'
+            // after the drag image is taken, so the ghost stays solid
+            requestAnimationFrame(() => setDragging(true))
           }}
+          onDragEnd={() => setDragging(false)}
           onDragOver={accept}
           onDragLeave={leave}
           onDrop={drop}
@@ -372,6 +447,7 @@ function ScenarioRow({
   onChanged,
 }: ViewProps & { item: ScenarioListItem }) {
   const [over, setOver] = useState(false)
+  const [dragging, setDragging] = useState(false)
 
   /** Dropping onto a scenario means "put it where this one lives". */
   const accept = (e: React.DragEvent) => {
@@ -396,13 +472,16 @@ function ScenarioRow({
     <div
       className={`scenario-item${item.path === selectedPath ? ' selected' : ''}${
         !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
-      }${over ? ' drop-target' : ''}`}
+      }${over ? ' drop-target' : ''}${dragging ? ' dragging' : ''}`}
       style={{ paddingLeft: folder.depth >= 0 ? 8 + (folder.depth + 1) * 12 : 0 }}
+      data-node={item.path}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData(DRAG_SCENARIO, item.path)
         e.dataTransfer.effectAllowed = 'move'
+        requestAnimationFrame(() => setDragging(true))
       }}
+      onDragEnd={() => setDragging(false)}
       onDragOver={accept}
       onDragLeave={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false)

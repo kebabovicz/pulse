@@ -24,8 +24,8 @@ export function About({ onClose }: { onClose: () => void }) {
           <span className="muted">{t('aboutAuthor')}</span>
           <span className="mono">kebabovicz</span>
           <span className="muted">github</span>
-          <a className="mono accent" href="https://github.com/kebabovicz" target="_blank" rel="noreferrer">
-            github.com/kebabovicz
+          <a className="mono accent" href="https://github.com/kebabovicz/pulse" target="_blank" rel="noreferrer">
+            github.com/kebabovicz/pulse
           </a>
           <span className="muted">email</span>
           <a className="mono accent" href="mailto:kebabovicz@gmail.com">

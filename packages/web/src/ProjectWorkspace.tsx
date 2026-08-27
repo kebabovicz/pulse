@@ -33,6 +33,7 @@ const lastScenarioKey = (projectId: string) => `pulse.scenario.${projectId}`
  */
 export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [scenarios, setScenarios] = useState<ScenarioListItem[]>([])
+  const [folders, setFolders] = useState<string[]>([])
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('run')
   const [runState, setRunState] = useState<RunState | null>(null)
@@ -45,7 +46,11 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   // guards against a stale scenario load landing after a newer one
   const openRequest = useRef(0)
 
-  const reloadScenarios = () => fetchScenarios(project.id).then(({ scenarios }) => setScenarios(scenarios))
+  const reloadScenarios = () =>
+    fetchScenarios(project.id).then(({ scenarios, folders }) => {
+      setScenarios(scenarios)
+      setFolders(folders)
+    })
 
   useEffect(
     () =>
@@ -166,8 +171,9 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   }
 
   useEffect(() => {
-    void fetchScenarios(project.id).then(({ scenarios }) => {
+    void fetchScenarios(project.id).then(({ scenarios, folders }) => {
       setScenarios(scenarios)
+      setFolders(folders)
       // restore context after a reload (a language switch reloads the page)
       const saved = localStorage.getItem(lastScenarioKey(project.id))
       if (saved && scenarios.some((s) => s.path === saved)) void openScenario(saved, scenarios)
@@ -188,6 +194,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
       <ScenarioList
         projectId={project.id}
         scenarios={scenarios}
+        folders={folders}
         selectedPath={selectedPath}
         runningPath={live ? selectedPath : null}
         onOpen={(path) => void openScenario(path)}

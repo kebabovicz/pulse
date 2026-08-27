@@ -25,21 +25,36 @@ const emptyFolder = (path: string, name: string, depth: number): TreeFolder => (
   runnable: [],
 })
 
-/** Builds the tree from flat paths; the root holds files that live at the top level. */
-export function buildTree(items: ScenarioListItem[]): TreeFolder {
+/** Finds or creates the folder a path points at, building the chain on the way. */
+function folderAt(root: TreeFolder, parts: string[]): TreeFolder {
+  let folder = root
+  let prefix = ''
+  for (const part of parts) {
+    prefix += `${part}/`
+    const existing = folder.folders.find((f) => f.path === prefix)
+    if (existing) {
+      folder = existing
+    } else {
+      const created = emptyFolder(prefix, part, folder.depth + 1)
+      folder.folders.push(created)
+      folder = created
+    }
+  }
+  return folder
+}
+
+/**
+ * Builds the tree from flat paths; the root holds files at the top level.
+ * Folders are passed in separately so an empty one still shows up.
+ */
+export function buildTree(items: ScenarioListItem[], folders: string[] = []): TreeFolder {
   const root = emptyFolder('', '', -1)
+  for (const folder of folders) folderAt(root, folder.split('/'))
   for (const item of items) {
     const parts = item.path.split('/')
     const fileName = parts.pop()
     if (fileName === undefined) continue
-    let folder = root
-    let prefix = ''
-    for (const part of parts) {
-      prefix += `${part}/`
-      const existing = folder.folders.find((f) => f.path === prefix)
-      folder = existing ?? (folder.folders.push(emptyFolder(prefix, part, folder.depth + 1)), folder.folders.at(-1)!)
-    }
-    folder.scenarios.push(item)
+    folderAt(root, parts).scenarios.push(item)
   }
   sortFolder(root)
   collectRunnable(root)

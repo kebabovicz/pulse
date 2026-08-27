@@ -206,6 +206,15 @@ body {
   display: flex;
   align-items: center;
   padding-right: 10px;
+  border: 1px solid transparent;
+}
+/* the folder a dragged scenario would land in */
+.drop-target {
+  border-color: var(--accent);
+  background: var(--tint-accent);
+}
+.scn-root {
+  min-height: 8px;
 }
 .scn-folder-row {
   display: flex;

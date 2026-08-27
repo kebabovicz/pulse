@@ -26,6 +26,20 @@ export interface AppContext {
   resolveBaseUrl?: (p: Project) => string
 }
 
+/** Every folder under the scenarios root, empty ones included, as relative paths. */
+function listFolders(root: string, prefix = ''): string[] {
+  const dir = path.join(root, prefix)
+  if (!fs.existsSync(dir)) return []
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+      return [rel, ...listFolders(root, rel)]
+    })
+    .sort()
+}
+
 export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   // config hosts plus UI-added ones; on a name clash the config wins
   const mergedHosts = (p: Project): Record<string, string> => ({ ...ctx.state.getCustomHosts(p.id), ...p.hosts })
@@ -174,18 +188,6 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       if (!isDir && !/\.ya?ml$/.test(to)) return reply.code(400).send({ message: 'path must end with .yaml' })
       fs.mkdirSync(path.dirname(absTo), { recursive: true })
       fs.renameSync(absFrom, absTo)
-      // drop folders that became empty, never climbing past the scenarios root
-      const root = path.resolve(project.scenariosDir)
-      let dir = path.dirname(path.resolve(absFrom))
-      while (
-        dir !== root &&
-        dir.startsWith(root + path.sep) &&
-        fs.existsSync(dir) &&
-        fs.readdirSync(dir).length === 0
-      ) {
-        fs.rmdirSync(dir)
-        dir = path.dirname(dir)
-      }
       const moved = isDir
         ? (ctx.scenarios.list(project.id) ?? [])
             .filter((s) => s.path === from || s.path.startsWith(from + '/'))
@@ -195,6 +197,31 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       return { from, to }
     },
   )
+
+  /** Folders exist on their own now — an empty one is a place to put scenarios into. */
+  app.post<{ Params: { id: string }; Body: { path: string } }>('/api/projects/:id/folders', (req, reply) => {
+    const project = findProject(req.params.id)
+    if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+    const rel = safeRel(req.body.path, project.scenariosDir)
+    if (!rel) return reply.code(400).send({ message: 'invalid path' })
+    const abs = path.join(project.scenariosDir, rel)
+    if (fs.existsSync(abs)) return reply.code(409).send({ message: `"${rel}" already exists` })
+    fs.mkdirSync(abs, { recursive: true })
+    ctx.bus.publish({ type: 'scenario-changed', project: project.id, path: rel, action: 'updated' })
+    return { path: rel }
+  })
+
+  app.post<{ Params: { id: string }; Body: { path: string } }>('/api/projects/:id/folders/delete', (req, reply) => {
+    const project = findProject(req.params.id)
+    if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
+    const rel = safeRel(req.body.path, project.scenariosDir)
+    if (!rel) return reply.code(400).send({ message: 'invalid path' })
+    const abs = path.join(project.scenariosDir, rel)
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) return reply.code(404).send({ message: `no "${rel}"` })
+    fs.rmSync(abs, { recursive: true })
+    ctx.bus.publish({ type: 'scenario-changed', project: project.id, path: rel, action: 'removed' })
+    return { deleted: rel }
+  })
 
   app.post<{ Params: { id: string }; Body: { path: string } }>('/api/projects/:id/scenarios/delete', (req, reply) => {
     const project = findProject(req.params.id)
@@ -208,6 +235,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   })
 
   app.get<{ Params: { id: string } }>('/api/projects/:id/scenarios', (req, reply) => {
+    const project = findProject(req.params.id)
     const list = ctx.scenarios.list(req.params.id)
     if (!list) return reply.code(404).send({ message: `no project "${req.params.id}"` })
     const ciSet = new Set(ctx.state.getCiScenarios(req.params.id))
@@ -227,7 +255,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
         }),
       }
     })
-    return { scenarios }
+    return { scenarios, folders: project ? listFolders(project.scenariosDir) : [] }
   })
 
   app.post<{ Params: { id: string } }>('/api/projects/:id/health-check', async (req, reply) => {

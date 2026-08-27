@@ -3,7 +3,7 @@ import { deleteScenario, renameScenario, toggleCi } from './api'
 import { Check } from './icons'
 import { t } from './i18n'
 
-// Scenario actions: rename or move (by editing the path) and delete.
+// Scenario actions: rename (the file name only — folders are changed by dragging) and delete.
 export function ScenarioMenu({
   project,
   path,
@@ -19,7 +19,9 @@ export function ScenarioMenu({
 }) {
   const [confirming, setConfirming] = useState(false)
   const [renaming, setRenaming] = useState(false)
-  const [newPath, setNewPath] = useState(path)
+  const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : ''
+  const baseName = path.slice(folder.length).replace(/\.ya?ml$/, '')
+  const [newName, setNewName] = useState(baseName)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,7 +40,11 @@ export function ScenarioMenu({
   }, [onClose])
 
   const submitRename = async () => {
-    if (newPath !== path) await renameScenario(project, path, newPath).catch((e: Error) => alert(e.message))
+    const trimmed = newName.trim()
+    if (trimmed && trimmed !== baseName) {
+      // the extension and the folder stay put: only the name is editable here
+      await renameScenario(project, path, `${folder}${trimmed}.yaml`).catch((e: Error) => alert(e.message))
+    }
     onChanged()
     onClose()
   }
@@ -46,7 +52,7 @@ export function ScenarioMenu({
   if (renaming) {
     return (
       <div className="scenario-menu" ref={rootRef}>
-        <div className="modal-section">{t('newPath')}</div>
+        <div className="modal-section">{t('renameTo')}</div>
         <input
           className="filter-input menu-input"
           autoComplete="off"
@@ -54,9 +60,9 @@ export function ScenarioMenu({
           data-bwignore="true"
           data-1p-ignore="true"
           data-lpignore="true"
-          value={newPath}
+          value={newName}
           autoFocus
-          onChange={(e) => setNewPath(e.target.value)}
+          onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void submitRename()}
         />
         <div className="modal-actions">

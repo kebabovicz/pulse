@@ -42,7 +42,7 @@ export const fetchProjects = () =>
   request<{ projects: ProjectView[]; errors: string[]; configPath: string; authEnabled: boolean }>('/api/projects')
 
 export const fetchScenarios = (project: string) =>
-  request<{ scenarios: ScenarioListItem[] }>(`/api/projects/${project}/scenarios`)
+  request<{ scenarios: ScenarioListItem[]; folders: string[] }>(`/api/projects/${project}/scenarios`)
 
 export interface FileFragment {
   startLine: number
@@ -113,3 +113,9 @@ export const renameScenario = (project: string, from: string, to: string) =>
 
 export const deleteScenario = (project: string, path: string) =>
   post<{ deleted: string }>(`/api/projects/${project}/scenarios/delete`, { path })
+
+export const createFolder = (project: string, path: string) =>
+  post<{ path: string }>(`/api/projects/${project}/folders`, { path })
+
+export const deleteFolder = (project: string, path: string) =>
+  post<{ deleted: string }>(`/api/projects/${project}/folders/delete`, { path })

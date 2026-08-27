@@ -255,6 +255,8 @@ export type PulseEvent =
       scenarioName: string
       scenarioHash: string
       host?: string
+      /** the deploy endpoint started it, not a human */
+      trigger?: 'ci'
       vars: RunVar[]
       varUsage: VarUsage
       steps: StepPlan[]

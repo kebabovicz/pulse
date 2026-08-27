@@ -191,7 +191,9 @@ const SPREAD_MIN_MS = 50
 /** A scenario untouched for this long is green only because nobody ran it. */
 const STALE_DAYS = 7
 
-const stepsOf = (scenarios: ScenarioStats[]): (StepStats & { scenario: string; spread: number })[] =>
+type MeasuredStep = StepStats & { scenario: string; spread: number; medianMs: number }
+
+const stepsOf = (scenarios: ScenarioStats[]): MeasuredStep[] =>
   scenarios.flatMap((s) =>
     s.steps
       .filter((step): step is StepStats & { medianMs: number } => step.medianMs !== null && step.medianMs > 0)
@@ -212,7 +214,7 @@ function slowestSteps(scenarios: ScenarioStats[]): SlowStep[] {
       stepId,
       method,
       path,
-      medianMs: medianMs!,
+      medianMs,
       spread,
       counted,
     }))
@@ -221,7 +223,7 @@ function slowestSteps(scenarios: ScenarioStats[]): SlowStep[] {
 /** Steps whose time swings: stable 300 ms and "either 100 or 900" are different things. */
 function unstableSteps(scenarios: ScenarioStats[]): SlowStep[] {
   return stepsOf(scenarios)
-    .filter((step) => step.medianMs! >= SPREAD_MIN_MS && step.spread >= SPREAD_RATIO)
+    .filter((step) => step.medianMs >= SPREAD_MIN_MS && step.spread >= SPREAD_RATIO)
     .sort((a, b) => b.spread - a.spread)
     .slice(0, TOP_N)
     .map(({ scenario, stepId, method, path, medianMs, spread, counted }) => ({
@@ -229,7 +231,7 @@ function unstableSteps(scenarios: ScenarioStats[]): SlowStep[] {
       stepId,
       method,
       path,
-      medianMs: medianMs!,
+      medianMs,
       spread,
       counted,
     }))

@@ -132,6 +132,7 @@ export class Runner {
       scenarioName: record.scenarioName,
       scenarioHash: record.scenarioHash,
       host: record.host,
+      trigger: record.trigger,
       vars: record.vars,
       varUsage: record.varUsage,
       steps: buildPlan(scenario),

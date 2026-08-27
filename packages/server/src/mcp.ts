@@ -32,7 +32,7 @@ function failedChecks(checks: CheckResult[] | undefined) {
   return (checks ?? [])
     .filter((c) => !c.passed)
     .map((c) => ({
-      check: c.kind === 'status' ? 'status' : c.kind === 'header' ? `header ${c.name}` : `body ${c.path ?? 'text'}`,
+      check: c.kind === 'status' ? 'status' : c.kind === 'header' ? `header ${c.name}` : c.kind === 'body-path' ? `body ${c.path}` : 'body text',
       expected: cut(String(c.expected)),
       actual: c.actual === null ? null : cut(String(c.actual)),
     }))
@@ -281,7 +281,7 @@ export function buildMcpServer(ctx: AppContext): McpServer {
           body: cut(step.response.body, BODY_CUT),
         },
         checks: step.checks?.map((c) => ({
-          check: c.kind === 'status' ? 'status' : c.kind === 'header' ? `header ${c.name}` : `body ${c.path ?? 'text'}`,
+          check: c.kind === 'status' ? 'status' : c.kind === 'header' ? `header ${c.name}` : c.kind === 'body-path' ? `body ${c.path}` : 'body text',
           passed: c.passed,
           expected: cut(String(c.expected)),
           actual: c.actual === null ? null : cut(String(c.actual)),

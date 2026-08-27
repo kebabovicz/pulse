@@ -427,11 +427,12 @@ function FolderView(props: ViewProps) {
               onTyping={props.onCreateTyping}
             />
           )}
-          {folder.folders.map((child) => (
-            <FolderView key={child.path} {...props} folder={child} />
-          ))}
+          {/* scenarios first: a file after a nested subtree reads as if it lived inside it */}
           {folder.scenarios.map((item) => (
             <ScenarioRow key={item.path} {...props} item={item} />
+          ))}
+          {folder.folders.map((child) => (
+            <FolderView key={child.path} {...props} folder={child} />
           ))}
           {isRoot && (
             <div

@@ -563,13 +563,6 @@
     "multipartPart": {
       "oneOf": [
         {
-          "type": [
-            "string",
-            "number",
-            "boolean"
-          ]
-        },
-        {
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -607,6 +600,13 @@
                 "base64"
               ]
             }
+          ]
+        },
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean"
           ]
         }
       ]

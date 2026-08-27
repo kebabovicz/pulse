@@ -3,7 +3,10 @@ import { JSONPath } from 'jsonpath-plus'
 import {
   isRequestStep,
   type CaptureResult,
+  type CheckResult,
+  type RequestSnapshot,
   type RequestStep,
+  type ResponseSnapshot,
   type RunRecord,
   type RunVar,
   type Scenario,

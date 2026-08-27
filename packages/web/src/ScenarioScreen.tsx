@@ -35,13 +35,13 @@ const captureLabel = (step: Scenario['steps'][number]): string =>
  */
 function stepCols(steps: Scenario['steps'], checksOf: (step: Scenario['steps'][number]) => string): CSSProperties {
   return cols({
-    'id-col': colWidth(
-      steps.map((s) => s.id + '  '),
+    'name-col': colWidth(
+      steps.map((s) => (s.name ?? s.id) + '  '),
       40,
       10,
     ),
-    'name-col': colWidth(
-      steps.map((s) => (s.name ? s.name + '  ' : '')),
+    'id-col': colWidth(
+      steps.map((s) => (s.name ? s.id + '  ' : '')),
       30,
     ),
     'expect-col': colWidth(
@@ -122,8 +122,9 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
             {scenario.steps.map((step, i) => (
               <div key={step.id} className="scn-step">
                 <span className="step-num">{i + 1}</span>
-                <span className="scn-step-id">{step.id}</span>
-                <span className="scn-step-name">{step.name ?? ''}</span>
+                {/* the name leads, the id follows it: the row reads as what the step does */}
+                <span className="scn-step-name">{step.name ?? step.id}</span>
+                <span className="scn-step-id">{step.name ? step.id : ''}</span>
                 {isRequestStep(step) ? (
                   <>
                     <span className="step-method">{step.request.method}</span>

@@ -151,12 +151,12 @@ export function HistoryScreen({
                   <ChevronDown size={12} />
                 </span>
               </td>
-              <td colSpan={3}>
+              <td colSpan={4} className="hgroup-title">
                 {group.name}
                 <span className="hgroup-path">{group.scenario.replace(/\.ya?ml$/, '')}</span>
                 <span className="hgroup-count">{t('runsCount', group.runs.length)}</span>
               </td>
-              <td colSpan={3} className="hgroup-last" style={{ textAlign: 'right' }}>
+              <td colSpan={2} className="hgroup-last" style={{ textAlign: 'right' }}>
                 {t('lastAt', relativeWhen(group.runs[0].startedAt))}
                 <button
                   className={`icon-btn${confirmClear === group.scenario ? ' bad' : ''}`}

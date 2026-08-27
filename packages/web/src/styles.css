@@ -1341,7 +1341,13 @@ input[type='checkbox']:checked::after {
   font-weight: 600;
   cursor: pointer;
 }
-.hgroup /* the file the group came from, beside the name it leads with */
+.hgroup /* the group header has the width of four columns: it reads on one line */
+.hgroup-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the file the group came from, beside the name it leads with */
 .hgroup-path {
   color: var(--text-muted);
   font-weight: 400;
@@ -1712,7 +1718,7 @@ input[type='checkbox'] {
 .scn-step {
   display: grid;
   grid-template-columns:
-    18px var(--id-col, 230px) var(--name-col, 200px) 52px minmax(0, 1fr)
+    18px var(--name-col, 230px) var(--id-col, 200px) 52px minmax(0, 1fr)
     var(--expect-col, 22ch) var(--captures-col, 26ch);
   gap: 12px;
   align-items: start;
@@ -1723,15 +1729,16 @@ input[type='checkbox'] {
 .scn-step:nth-of-type(even) {
   background: var(--row-alt);
 }
+/* the id is the secondary half of the pair now: quiet, on one line */
 .scn-step-id {
-  font-weight: 600;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 /* a long step name wraps onto a second line instead of widening the column */
 .scn-step-name {
-  color: var(--text-muted);
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 /* left-aligned: every row starts its status at the same place */

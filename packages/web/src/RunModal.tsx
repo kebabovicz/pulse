@@ -3,6 +3,9 @@ import { fetchScenarioDetail, type ScenarioVar } from './api'
 import { Cross, Eye, EyeOff } from './icons'
 import { t } from './i18n'
 
+/** One masking character, repeated: a secret must not leak through a placeholder. */
+const MASK = '•'
+
 // Overrides are remembered per project + scenario pair (DESIGN.md req 13).
 const varsKey = (project: string, path: string) => `pulse.vars.${project}.${path}`
 
@@ -72,7 +75,9 @@ export function RunModal({
               id={`var-${v.name}`}
               type={v.secret && !shown.has(v.name) ? 'password' : 'text'}
               value={values[v.name] ?? ''}
-              placeholder={v.default}
+              // the value from the file shows as a placeholder, so a secret has to
+              // be masked there as well — the eye reveals both halves at once
+              placeholder={v.secret && !shown.has(v.name) ? MASK.repeat(Math.min(v.default.length, 16)) : v.default}
               onChange={(e) => setValues({ ...values, [v.name]: e.target.value })}
             />
             {v.secret ? (

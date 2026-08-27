@@ -55,6 +55,7 @@ interface StepSamples {
   failures: number
   retried: number
   counted: number
+  name?: string
 }
 
 /** Pauses are constants from the file: they neither degrade nor fail. */
@@ -66,6 +67,7 @@ function collectSteps(records: RunRecord[]): StepStats[] {
     for (const step of record.steps) {
       if (!isMeasurable(step)) continue
       const entry = samples.get(step.stepId) ?? {
+        name: step.name ?? undefined,
         method: step.kind === 'request' ? step.method : undefined,
         path: step.kind === 'request' ? step.path : undefined,
         durations: [],
@@ -82,6 +84,7 @@ function collectSteps(records: RunRecord[]): StepStats[] {
   }
   return [...samples].map(([stepId, s]) => ({
     stepId,
+    name: s.name,
     method: s.method,
     path: s.path,
     medianMs: median(s.durations),
@@ -171,6 +174,7 @@ function flakySteps(scenarios: ScenarioStats[], store: RunStore, projectId: stri
         scenario: s.scenario,
         name: s.name,
         stepId: step.stepId,
+        stepName: step.name,
         method: step.method,
         path: step.path,
         rate: step.retried / step.counted,
@@ -201,7 +205,7 @@ const SPREAD_MIN_MS = 50
 /** A scenario untouched for this long is green only because nobody ran it. */
 const STALE_DAYS = 7
 
-type MeasuredStep = StepStats & { scenario: string; name: string; spread: number; medianMs: number }
+type MeasuredStep = StepStats & { scenario: string; scenarioName: string; spread: number; medianMs: number }
 
 /**
  * One row per endpoint, not per scenario that calls it: a shared step like
@@ -217,7 +221,7 @@ const stepsOf = (scenarios: ScenarioStats[]): MeasuredStep[] => {
         ...step,
         medianMs: step.medianMs,
         scenario: s.scenario,
-        name: s.name,
+        scenarioName: s.name,
         spread: step.p90Ms !== null ? step.p90Ms / step.medianMs : 1,
       }
       const key = step.path ? `${step.method ?? ''} ${step.path}` : `${s.scenario}/${step.stepId}`
@@ -233,10 +237,11 @@ function slowestSteps(scenarios: ScenarioStats[]): SlowStep[] {
   return stepsOf(scenarios)
     .sort((a, b) => b.medianMs - a.medianMs)
     .slice(0, TOP_N)
-    .map(({ scenario, name, stepId, method, path, medianMs, spread, counted }) => ({
+    .map(({ scenario, scenarioName, stepId, name, method, path, medianMs, spread, counted }) => ({
       scenario,
-      name,
+      name: scenarioName,
       stepId,
+      stepName: name,
       method,
       path,
       medianMs,
@@ -251,10 +256,11 @@ function unstableSteps(scenarios: ScenarioStats[]): SlowStep[] {
     .filter((step) => step.medianMs >= SPREAD_MIN_MS && step.spread >= SPREAD_RATIO)
     .sort((a, b) => b.spread - a.spread)
     .slice(0, TOP_N)
-    .map(({ scenario, name, stepId, method, path, medianMs, spread, counted }) => ({
+    .map(({ scenario, scenarioName, stepId, name, method, path, medianMs, spread, counted }) => ({
       scenario,
-      name,
+      name: scenarioName,
       stepId,
+      stepName: name,
       method,
       path,
       medianMs,

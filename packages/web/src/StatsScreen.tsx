@@ -218,10 +218,20 @@ function ScenarioCell({ name, path }: { name: string; path: string }) {
  * Two cells, not one: the id keeps its own column and wraps onto further lines,
  * so requests below it stay in a column of their own.
  */
-function StepCell({ step }: { step: { stepId: string; method?: string; path?: string } }) {
+function StepCell({
+  step,
+}: {
+  // the per-scenario table carries the step's name as `name`, the project-wide
+  // tables as `stepName` — there `name` already belongs to the scenario
+  step: { stepId: string; name?: string; stepName?: string; method?: string; path?: string }
+}) {
+  const stepName = step.stepName ?? step.name
   return (
     <>
-      <span className="stats-step-id">{step.stepId}</span>
+      <span className="stats-scenario">
+        <span className="stats-step-id">{step.stepId}</span>
+        {stepName && <span className="muted stats-scenario-path">{stepName}</span>}
+      </span>
       <span className="muted stats-req">{step.path ? `${step.method ?? ''} ${step.path}` : ''}</span>
     </>
   )

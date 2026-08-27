@@ -355,6 +355,7 @@ export interface ChainRun {
 
 export interface StepStats {
   stepId: string
+  name?: string // the step's human name from the scenario, when it has one
   method?: string
   path?: string
   medianMs: number | null
@@ -388,6 +389,7 @@ export interface SlowStep {
   scenario: string
   name: string // the scenario's own name, which is what the tables lead with
   stepId: string
+  stepName?: string
   method?: string
   path?: string
   medianMs: number
@@ -410,6 +412,7 @@ export interface FlakyStep {
   scenario: string
   name: string
   stepId: string
+  stepName?: string
   method?: string
   path?: string
   rate: number

@@ -152,6 +152,10 @@ expect:
 All checks of a step are evaluated even after the first failure — the report
 shows every one.
 
+Redirects are not followed: a 3xx is the step's own outcome. Write
+`status: 302`, capture `location` from the header and make the next step go
+there — the redirect chain stays visible instead of collapsing into one step.
+
 JSONPath supports filter expressions, so a scenario can find an element by a
 field value instead of hardcoding an id — both in checks and in captures:
 

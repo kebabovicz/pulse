@@ -3,7 +3,7 @@ import { Check, ChevronsDownUp, ChevronsUpDown, Cross } from '../icons'
 import { t } from '../i18n'
 import { JsonTree, treeSize } from '../JsonTree'
 import type { RunState, StepView } from '../runState'
-import { CopyButton } from '../ui/CopyButton'
+import { CopyButton, CopyValue } from '../ui/CopyButton'
 import { ClipValue } from '../ui/ClipValue'
 import { colWidth, cols } from '../ui/columns'
 import { Seg, useViewMode } from '../ui/Seg'
@@ -273,17 +273,14 @@ export function StepDetails({
             ),
           })}
         >
-          <header>
-            {t('variables')}
-            <CopyButton text={r.captures!.map((c) => `${c.name}=${c.value}`).join('\n')} />
-          </header>
+          <header>{t('variables')}</header>
           {r.captures!.map((c) => {
             const usedBy = state.varUsage[c.name]?.usedBy ?? []
             return (
               <div key={c.name} className="capture-row">
                 <span className="kv-origin">{c.from}</span>
                 <span className="kv-key accent">{c.name}</span>
-                <ClipValue className="mono capture-value" text={c.value} />
+                <CopyValue value={c.value} />
                 <ClipValue className="muted capture-detail" text={c.detail} />
                 {usedBy.length > 0 && (
                   <span className="sub-badge" title={usedBy.join(', ')}>

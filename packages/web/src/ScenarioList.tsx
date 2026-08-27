@@ -371,6 +371,9 @@ const indent = (depth: number): React.CSSProperties => {
   return { paddingLeft: px, ['--indent' as string]: `${px}px` }
 }
 
+/** Renaming waits for a second click, but not as long as the system double click does. */
+const DOUBLE_CLICK_MS = 300
+
 /** What is being dragged: a scenario file or a whole folder. */
 const DRAG_SCENARIO = 'application/x-pulse-scenario'
 const DRAG_FOLDER = 'application/x-pulse-folder'
@@ -381,6 +384,7 @@ function FolderView(props: ViewProps) {
   const [over, setOver] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [asking, setAsking] = useState(false)
+  const lastClick = useRef(0)
   const open = !collapsed.has(folder.path)
   const isRoot = folder.path === ''
 
@@ -443,8 +447,14 @@ function FolderView(props: ViewProps) {
         >
           <button
             className="scn-folder-row"
-            onClick={() => onToggleFolder(folder.path)}
-            onDoubleClick={() => props.onRenameStart(folder.path)}
+            onClick={() => {
+              const now = performance.now()
+              const second = now - lastClick.current < DOUBLE_CLICK_MS
+              lastClick.current = second ? 0 : now
+              // the first click already toggled the folder; undo that and rename instead
+              onToggleFolder(folder.path)
+              if (second) props.onRenameStart(folder.path)
+            }}
           >
             <span className={`scn-folder-chevron${open ? ' open' : ''}`}>
               <ChevronDown size={11} />

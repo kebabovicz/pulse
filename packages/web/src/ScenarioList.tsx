@@ -73,16 +73,9 @@ export function ScenarioList({
     return selectedPath.includes('/') ? selectedPath.slice(0, selectedPath.lastIndexOf('/') + 1) : ''
   }
 
-  /** "New folder", "New folder 2", … — whatever is free in that parent. */
-  const freeName = (parent: string): string => {
-    const taken = new Set(folders.filter((f) => `${f}/`.startsWith(parent)).map((f) => f.slice(parent.length)))
-    const base = t('newFolderDefault')
-    if (!taken.has(base)) return base
-    for (let i = 2; ; i++) if (!taken.has(`${base} ${i}`)) return `${base} ${i}`
-  }
-
   const submitNewFolder = async (parent: string, typed: string) => {
-    const name = typed.trim() || freeName(parent)
+    const name = typed.trim()
+    if (!name) return setCreating(null) // nothing typed: the row just goes away
     try {
       await createFolder(projectId, `${parent}${name}`)
       setCreating(null)
@@ -469,7 +462,7 @@ function FolderView(props: ViewProps) {
           )}
           <button
             className={`row-action row-ask${asking ? ' asking' : ''}`}
-            title={asking ? t('sure') : t('deleteFolder')}
+            title={asking ? undefined : t('deleteFolder')}
             onClick={() => {
               if (!asking) return setAsking(true)
               setAsking(false)

@@ -1341,7 +1341,13 @@ input[type='checkbox']:checked::after {
   font-weight: 600;
   cursor: pointer;
 }
-.hgroup .hgroup-count {
+.hgroup /* the file the group came from, beside the name it leads with */
+.hgroup-path {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 8px;
+}
+.hgroup-count {
   color: var(--text-muted);
   font-weight: 400;
   margin-left: 8px;
@@ -2282,9 +2288,25 @@ input[type='search']::-webkit-search-cancel-button {
   font-size: 11px;
 }
 
+/* the scenario column is wider now: it carries a name and the file under it */
+.stats-scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.stats-scenario-name {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.stats-scenario-path {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
 .stats-flaky {
   display: grid;
-  grid-template-columns: var(--stats-name-col, 26ch) var(--stats-name-col, 26ch) minmax(0, 1fr) 16ch 18ch;
+  grid-template-columns: var(--stats-name-col, 34ch) var(--stats-name-col, 26ch) minmax(0, 1fr) 16ch 18ch;
   gap: 12px;
   align-items: start;
   min-height: 26px;

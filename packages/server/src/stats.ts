@@ -169,6 +169,7 @@ function flakySteps(scenarios: ScenarioStats[], store: RunStore, projectId: stri
       const record = store.getRun(projectId, key, lastRun.run)
       flaky.push({
         scenario: s.scenario,
+        name: s.name,
         stepId: step.stepId,
         method: step.method,
         path: step.path,
@@ -200,7 +201,7 @@ const SPREAD_MIN_MS = 50
 /** A scenario untouched for this long is green only because nobody ran it. */
 const STALE_DAYS = 7
 
-type MeasuredStep = StepStats & { scenario: string; spread: number; medianMs: number }
+type MeasuredStep = StepStats & { scenario: string; name: string; spread: number; medianMs: number }
 
 /**
  * One row per endpoint, not per scenario that calls it: a shared step like
@@ -216,6 +217,7 @@ const stepsOf = (scenarios: ScenarioStats[]): MeasuredStep[] => {
         ...step,
         medianMs: step.medianMs,
         scenario: s.scenario,
+        name: s.name,
         spread: step.p90Ms !== null ? step.p90Ms / step.medianMs : 1,
       }
       const key = step.path ? `${step.method ?? ''} ${step.path}` : `${s.scenario}/${step.stepId}`
@@ -231,8 +233,9 @@ function slowestSteps(scenarios: ScenarioStats[]): SlowStep[] {
   return stepsOf(scenarios)
     .sort((a, b) => b.medianMs - a.medianMs)
     .slice(0, TOP_N)
-    .map(({ scenario, stepId, method, path, medianMs, spread, counted }) => ({
+    .map(({ scenario, name, stepId, method, path, medianMs, spread, counted }) => ({
       scenario,
+      name,
       stepId,
       method,
       path,
@@ -248,8 +251,9 @@ function unstableSteps(scenarios: ScenarioStats[]): SlowStep[] {
     .filter((step) => step.medianMs >= SPREAD_MIN_MS && step.spread >= SPREAD_RATIO)
     .sort((a, b) => b.spread - a.spread)
     .slice(0, TOP_N)
-    .map(({ scenario, stepId, method, path, medianMs, spread, counted }) => ({
+    .map(({ scenario, name, stepId, method, path, medianMs, spread, counted }) => ({
       scenario,
+      name,
       stepId,
       method,
       path,

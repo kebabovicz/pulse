@@ -184,7 +184,7 @@ function FlakyTable({ rows, onOpenRun }: { rows: FlakyStep[]; onOpenRun: (scenar
       </div>
       {rows.map((row) => (
         <div key={`${row.scenario}/${row.stepId}`} className="stats-flaky">
-          <span className="muted">{row.scenario.replace(/\.ya?ml$/, '')}</span>
+          <ScenarioCell name={row.name} path={row.scenario} />
           <StepCell step={row} />
           <span className="mono">
             <span className="warn">{pct(row.rate)}</span>
@@ -201,6 +201,16 @@ function FlakyTable({ rows, onOpenRun }: { rows: FlakyStep[]; onOpenRun: (scenar
         </div>
       ))}
     </section>
+  )
+}
+
+/** The scenario leads with its own name; the file it lives in follows underneath. */
+function ScenarioCell({ name, path }: { name: string; path: string }) {
+  return (
+    <span className="stats-scenario">
+      <span className="stats-scenario-name">{name}</span>
+      <span className="muted stats-scenario-path">{path.replace(/\.ya?ml$/, '')}</span>
+    </span>
   )
 }
 
@@ -231,7 +241,7 @@ function StepsTable({ title, rows, metric }: { title: string; rows: SlowStep[]; 
       </div>
       {rows.map((row) => (
         <div key={`${row.scenario}/${row.stepId}`} className="stats-flaky">
-          <span className="muted">{row.scenario.replace(/\.ya?ml$/, '')}</span>
+          <ScenarioCell name={row.name} path={row.scenario} />
           <StepCell step={row} />
           <span className="mono">{metric === 'median' ? fmtMs(row.medianMs) : `×${row.spread.toFixed(1)}`}</span>
           <span className={`mono${metric === 'median' ? ' muted' : ''}`}>

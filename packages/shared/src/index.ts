@@ -386,6 +386,7 @@ export interface ScenarioStats {
 /** A step listed among the slowest endpoints of the project. */
 export interface SlowStep {
   scenario: string
+  name: string // the scenario's own name, which is what the tables lead with
   stepId: string
   method?: string
   path?: string
@@ -407,6 +408,7 @@ export interface StaleScenario {
 /** A step that passes only on a retry inside a scenario that looks healthy. */
 export interface FlakyStep {
   scenario: string
+  name: string
   stepId: string
   method?: string
   path?: string

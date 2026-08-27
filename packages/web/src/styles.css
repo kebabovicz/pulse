@@ -669,10 +669,13 @@ body {
   display: grid;
   grid-template-columns: 18px 18px var(--step-col, 360px) 52px minmax(0, 1fr) var(--attempts-col, 3ch) 52px 64px 16px;
   gap: 10px;
-  align-items: center;
+  /* a cell that wraps must not push its neighbours to the middle of the row:
+     the padding holds the space centring used to take, so a one-line row keeps
+     its height and a long error only pushes itself down */
+  align-items: start;
   width: 100%;
   min-height: 30px;
-  padding: 0 8px 0 8px;
+  padding: 7px 8px;
   background: none;
   border: 0;
   border-bottom: 1px solid var(--border);
@@ -972,9 +975,9 @@ body {
   display: grid;
   grid-template-columns: 48px var(--key-col, 220px) minmax(0, 1fr);
   gap: 12px;
-  align-items: center;
+  align-items: start;
   min-height: 26px;
-  padding: 4px 20px;
+  padding: 5px 20px;
 }
 .jt-row:nth-child(even) {
   background: var(--row-alt);
@@ -1207,10 +1210,12 @@ input[type='checkbox']:checked::after {
 .history td.num {
   text-align: right;
 }
+/* same rule as the grid rows: a wrapped cell leaves its neighbours at the top */
 .history td {
-  padding: 4px 10px;
+  padding: 5px 10px;
   border-bottom: 1px solid var(--border);
   height: 26px;
+  vertical-align: top;
 }
 .history tbody tr.run-row {
   cursor: pointer;
@@ -2018,9 +2023,9 @@ input[type='search']::-webkit-search-cancel-button {
     18px var(--stats-name-col, 26ch) 10ch minmax(120px, 1fr) 10ch 9ch 16ch
     18ch;
   gap: 12px;
-  align-items: center;
+  align-items: start;
   min-height: 28px;
-  padding: 4px 20px;
+  padding: 6px 20px;
   font-size: 11px;
 }
 .stats-row {
@@ -2128,9 +2133,9 @@ input[type='search']::-webkit-search-cancel-button {
     18px var(--stats-name-col, 26ch) 10ch minmax(120px, 1fr) 10ch 9ch 16ch
     18ch;
   gap: 12px;
-  align-items: center;
+  align-items: start;
   min-height: 26px;
-  padding: 3px 20px;
+  padding: 5px 20px;
   font-size: 11px;
 }
 /* the id keeps the scenario column and wraps; the request gets its own column */
@@ -2184,9 +2189,9 @@ input[type='search']::-webkit-search-cancel-button {
   display: grid;
   grid-template-columns: var(--stats-name-col, 26ch) var(--stats-name-col, 26ch) minmax(0, 1fr) 16ch 18ch;
   gap: 12px;
-  align-items: center;
+  align-items: start;
   min-height: 26px;
-  padding: 4px 20px;
+  padding: 5px 20px;
   font-size: 11px;
 }
 .stats-flaky.head {

@@ -172,6 +172,8 @@ export function StepDetails({
             <span className="kv-origin">cache</span>
             <span className="mono">{cachedHint(r)}</span>
           </div>
+          {/* a cached step neither sends nor checks: say so where it is read */}
+          <div className="kv-row muted">{t('cachedNoChecks')}</div>
         </section>
       )}
       {r.request && (

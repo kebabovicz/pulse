@@ -72,6 +72,7 @@ request:
   method: POST # GET | POST | PUT | PATCH | DELETE | HEAD | OPTIONS
   path: /api/v1/users # relative to the project's active host
   # url: https://...              # absolute URL instead of path (not affected by host switching)
+  # url: '{{fileUrl}}'            # or the whole address captured from an earlier response
   query: { page: 1 }
   headers: { X-Dev-Key: '{{devApiKey}}' }
   body: { phoneNumber: '{{phone}}' } # object/array is sent as JSON
@@ -238,6 +239,11 @@ follow:
     token: { from: body, path: $.token, secret: true }
 ```
 
+- **Cache the sign-in, nothing else.** A cached step sends no request and runs
+  no checks, so a cached step is not a test any more. That is a fair trade for
+  a token — the scenarios that follow do the testing — and a bad one for reading
+  a dictionary or searching for a record: cache that step and the scenario goes
+  green without ever asking the API whether the data is still there.
 - The entry belongs to **this request on this host**: the method, the URL, the
   body as it was actually sent and the captures asked for. Two accounts, two
   entries; an edited request starts its own.
@@ -270,7 +276,10 @@ Clean up through the API only: Pulse deliberately has no database access.
 
 ## Interpolation
 
-- `{{name}}` — a variable from `vars` or `capture`. Works in `path`, `url`,
+- `{{name}}` — a variable from `vars` or `capture`. `path` and `url` may be
+  built from a captured value, the whole address included (`url: '{{fileUrl}}'`)
+  — what it turns into is checked when the step runs. Interpolation works in
+  `path`, `url`,
   `query`, `headers`, `body`, `multipart` (field values, inline `text` and the
   `file` path), `equals`, `matches`, `cookies.set`, and inside a
   JSONPath expression — both in a check's `path` and in a capture's `path`:
@@ -371,3 +380,5 @@ cleanup:
    size, unless the exact count is the point of the test.
 8. Ids of reference data are found by a JSONPath filter instead of being pasted
    as literals — a stand can be reseeded at any time.
+9. `cache` is on the sign-in step and nowhere else: a cached read checks nothing
+   and turns the scenario green on data it never asked about.

@@ -20,6 +20,7 @@ import { RunModal } from './RunModal'
 import { RunScreen } from './RunScreen'
 import { fromRecord, pendingRun, reduce, type RunState } from './runState'
 import { ScenarioList } from './ScenarioList'
+import { Loading } from './ui/Loading'
 import { notify } from './ui/toast'
 import { ScenarioScreen } from './ScenarioScreen'
 import { StatsScreen } from './StatsScreen'
@@ -44,6 +45,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [compare, setCompare] = useState<[RunRecord, RunRecord] | null>(null)
   const [invalidFragment, setInvalidFragment] = useState<FileFragment | null>(null)
   const [modalPath, setModalPath] = useState<string | null>(null)
+  // a run is on its way: the panel waits instead of claiming the scenario never ran
+  const [loading, setLoading] = useState(false)
   // guards against a stale scenario load landing after a newer one
   const openRequest = useRef(0)
 
@@ -80,24 +83,31 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     setInvalidFragment(null)
   }
 
-  // clicking a scenario opens its latest run on the Run tab (req 7)
+  // clicking a scenario opens its latest run on the Run tab (req 7), except on
+  // the Scenario tab: reading one file after another must not throw the reader
+  // back to Run every click. The other tabs show data of a different scenario.
   const openScenario = async (path: string, list: ScenarioListItem[] = scenarios) => {
     setSelectedPath(path)
-    setTab('run')
+    setTab((prev) => (prev === 'scenario' ? prev : 'run'))
     resetView()
     localStorage.setItem(lastScenarioKey(project.id), path)
     const request = ++openRequest.current
-    const item = list.find((s) => s.path === path)
-    if (item && !item.valid) {
-      const { fragment } = await fetchScenarioDetail(project.id, path)
-      if (request === openRequest.current) setInvalidFragment(fragment)
-      return
+    setLoading(true)
+    try {
+      const item = list.find((s) => s.path === path)
+      if (item && !item.valid) {
+        const { fragment } = await fetchScenarioDetail(project.id, path)
+        if (request === openRequest.current) setInvalidFragment(fragment)
+        return
+      }
+      const { runs } = await fetchRuns(project.id, path)
+      if (runs.length === 0) return
+      const record = await fetchRun(project.id, path, runs[0].run)
+      // a slower earlier request must not overwrite what the user opened since
+      if (request === openRequest.current) setRunState(fromRecord(record))
+    } finally {
+      if (request === openRequest.current) setLoading(false)
     }
-    const { runs } = await fetchRuns(project.id, path)
-    if (runs.length === 0) return
-    const record = await fetchRun(project.id, path, runs[0].run)
-    // a slower earlier request must not overwrite what the user opened since
-    if (request === openRequest.current) setRunState(fromRecord(record))
   }
 
   // the History tab shows the whole project history; the filter chip is applied
@@ -112,7 +122,14 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     setSelectedPath(path)
     setTab('run')
     resetView()
-    setRunState(fromRecord(await fetchRun(project.id, path, run)))
+    const request = ++openRequest.current
+    setLoading(true)
+    try {
+      const record = await fetchRun(project.id, path, run)
+      if (request === openRequest.current) setRunState(fromRecord(record))
+    } finally {
+      if (request === openRequest.current) setLoading(false)
+    }
   }
 
   const openCompare = async (path: string, a: number, b: number) => {
@@ -141,6 +158,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
       setSelectedPath(path)
       setTab('run')
       setLive(true)
+      openRequest.current++ // a pending scenario load must not overwrite this run
+      setLoading(false)
       setRunState(pendingRun(path))
       try {
         await startRun(project.id, path, {})
@@ -161,6 +180,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     setTab('run')
     // the placeholder and the live flag go up BEFORE the request: run events can outrun the POST response
     setLive(true)
+    openRequest.current++ // a pending scenario load must not overwrite this run
+    setLoading(false)
     setRunState(pendingRun(path))
     try {
       await startRun(project.id, path, vars)
@@ -254,6 +275,8 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
               onStop={() => void stopRun(project.id)}
               onRepeat={() => selectedPath && setModalPath(selectedPath)}
             />
+          ) : loading ? (
+            <Loading />
           ) : selected && !selected.valid ? (
             <InvalidScenario scenario={selected} fragment={invalidFragment} />
           ) : selected ? (

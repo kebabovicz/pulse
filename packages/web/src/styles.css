@@ -1468,6 +1468,11 @@ input[type='checkbox']:checked::after {
   color: var(--text-secondary);
   gap: 6px;
 }
+/* the wait itself is grey and late: a load under 150ms never flashes a spinner */
+.empty.loading {
+  color: var(--text-muted);
+  animation: fade-in 0.2s ease 0.15s both;
+}
 .empty .hint {
   color: var(--text-muted);
   font-size: 11px;

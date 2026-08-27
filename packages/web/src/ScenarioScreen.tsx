@@ -7,6 +7,7 @@ import { t } from './i18n'
 import { parseDurationLabel } from './runState'
 import { ScenarioVars } from './ScenarioVars'
 import { ClipValue } from './ui/ClipValue'
+import { Loading } from './ui/Loading'
 import { colWidth, cols } from './ui/columns'
 
 function CopyRaw({ text }: { text: string }) {
@@ -77,7 +78,7 @@ export function ScenarioScreen({ project, path }: { project: string; path: strin
     void fetchScenarioDetail(project, path).then(setDetail)
   }, [project, path])
 
-  if (!detail) return null
+  if (!detail) return <Loading />
   const scenario = detail.scenario
 
   return (

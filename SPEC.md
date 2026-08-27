@@ -164,6 +164,18 @@ field value instead of hardcoding an id — both in checks and in captures:
   exists: true
 ```
 
+An array of plain values is filtered by the value itself — this is how a role,
+a tag or a status is checked without knowing its position:
+
+```yaml
+- path: "$.roles[?(@=='Admin')]"
+  exists: true
+```
+
+When the collection may hold a `null`, guard the filter — `[?(@ && @.name=='X')]`.
+Without the guard the whole expression dies on the first null, and the step
+fails naming the path instead of reporting the check.
+
 ### capture
 
 Capture values from the response for later steps.

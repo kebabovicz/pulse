@@ -4,9 +4,9 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { load as loadYaml, YAMLException } from 'js-yaml'
 import { Ajv2020 } from 'ajv/dist/2020.js'
-import { JSONPath } from 'jsonpath-plus'
 import chokidar, { type FSWatcher } from 'chokidar'
 import { isRequestStep, type Scenario, type ScenarioSummary, type Step } from '@pulse/shared'
+import { jsonQuery } from './jsonpath.js'
 import type { Project } from './config.js'
 import type { EventBus } from './events.js'
 
@@ -112,7 +112,7 @@ function expressionError(step: Step): string | null {
   ]
   for (const jsonPath of paths) {
     try {
-      JSONPath({ path: jsonPath, json: {}, wrap: true })
+      jsonQuery(jsonPath, {})
     } catch (e) {
       return `step "${step.id}": invalid JSONPath ${JSON.stringify(jsonPath)} (${(e as Error).message})`
     }

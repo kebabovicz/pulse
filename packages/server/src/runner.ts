@@ -1,5 +1,4 @@
 import { setTimeout as sleep } from 'node:timers/promises'
-import { JSONPath } from 'jsonpath-plus'
 import {
   isRequestStep,
   type CaptureResult,
@@ -19,6 +18,7 @@ import {
   type VarUsage,
 } from '@pulse/shared'
 import { evalChecks, failedLabels } from './checks.js'
+import { jsonQuery } from './jsonpath.js'
 import { buildMultipart } from './multipart.js'
 import type { Project, Settings } from './config.js'
 import type { EventBus } from './events.js'
@@ -152,7 +152,18 @@ export class Runner {
         if (failed || ctx.signal.aborted) {
           result = { stepId: step.id, status: 'skipped' }
         } else {
-          result = isRequestStep(step) ? await this.runRequest(ctx, step) : await this.runSleep(ctx, step)
+          try {
+            result = isRequestStep(step) ? await this.runRequest(ctx, step) : await this.runSleep(ctx, step)
+          } catch (e) {
+            // a step that blows up mid-flight (a JSONPath the library rejects, a
+            // broken URL) fails naming itself: skipping it silently left the run
+            // failed with no culprit and nothing to read
+            result = {
+              stepId: step.id,
+              status: 'failed',
+              error: { kind: 'internal', message: e instanceof Error ? e.message : String(e) },
+            }
+          }
         }
         this.publish(ctx, { type: 'step-finished', ...result })
         Object.assign(record.steps[i], result)
@@ -406,7 +417,7 @@ export class Runner {
         if (spec.path) {
           // the path may reference earlier captures, same as a check does
           const path = space.render(spec.path).text
-          const found: unknown[] = JSONPath({ path, json: json ?? null, wrap: true })
+          const found: unknown[] = jsonQuery(path, json)
           value = found.length ? String(found[0]) : ''
           detail = path
         } else if (spec.regex) {

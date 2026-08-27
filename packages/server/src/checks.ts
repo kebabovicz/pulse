@@ -1,5 +1,5 @@
-import { JSONPath } from 'jsonpath-plus'
 import type { BodyCheck, CheckResult, RequestStep, StepResult } from '@pulse/shared'
+import { jsonQuery } from './jsonpath.js'
 
 const PREVIEW_LIMIT = 120
 /** A regex from a scenario can be malformed or interpolated at run time: never let it throw. */
@@ -61,7 +61,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
   }
   // the path may reference captured values: "$.items[?(@.id=='{{orderId}}')]"
   const path = render(check.path)
-  const found: unknown[] = json === undefined ? [] : JSONPath({ path, json, wrap: true })
+  const found: unknown[] = json === undefined ? [] : jsonQuery(path, json)
   const value = found[0]
   const actual = found.length === 0 ? null : typeof value === 'string' ? value : JSON.stringify(value)
   if (check.exists !== undefined) {
@@ -98,7 +98,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
   }
   if (check.equalsPath !== undefined) {
     const otherPath = render(check.equalsPath)
-    const otherFound: unknown[] = json === undefined ? [] : JSONPath({ path: otherPath, json, wrap: true })
+    const otherFound: unknown[] = json === undefined ? [] : jsonQuery(otherPath, json)
     const other = otherFound.length === 0 ? null : otherFound[0]
     const expected = `${otherPath} = ${other === null ? '—' : typeof other === 'string' ? other : JSON.stringify(other)}`
     return {

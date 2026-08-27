@@ -194,11 +194,11 @@
         },
         "path": {
           "type": "string",
-          "pattern": "^/"
+          "pattern": "^(/|\\{\\{)"
         },
         "url": {
           "type": "string",
-          "pattern": "^https?://"
+          "pattern": "^(https?://|\\{\\{)"
         },
         "query": {
           "type": "object",

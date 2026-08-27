@@ -351,9 +351,16 @@ export class Runner {
       jar.set(name, track(`cookies.${name}`, value))
     }
 
-    const url = new URL(
-      step.request.url ? track('url', step.request.url) : ctx.baseUrl + track('url', step.request.path!),
-    )
+    // path and url may be built from a captured value, so what they turn into is
+    // only known here: say plainly what came out instead of "Invalid URL"
+    const target = step.request.url ? track('url', step.request.url) : ctx.baseUrl + track('url', step.request.path!)
+    let url: URL
+    try {
+      url = new URL(target)
+    } catch {
+      const hint = step.request.url ? ' — url must be absolute, http:// or https://' : ' — path must start with a slash'
+      throw new Error(`request address ${JSON.stringify(target)} is not a URL${hint}`)
+    }
     for (const [name, value] of Object.entries(step.request.query ?? {})) {
       url.searchParams.set(name, track(`query.${name}`, String(value)))
     }

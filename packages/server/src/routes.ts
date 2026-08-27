@@ -220,6 +220,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
             .map((s) => [s.path, to + s.path.slice(from.length)] as [string, string])
         : [[from, to] as [string, string]]
       ctx.runs.renamePaths(project.id, moved)
+      ctx.state.renameCiScenarios(project.id, moved) // the deploy flag travels with the file
       return { from, to }
     },
   )
@@ -244,7 +245,11 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!rel) return reply.code(400).send({ message: 'invalid path' })
     const abs = path.join(project.scenariosDir, rel)
     if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) return reply.code(404).send({ message: `no "${rel}"` })
+    const inside = (ctx.scenarios.list(project.id) ?? [])
+      .map((s) => s.path)
+      .filter((p) => p === rel || p.startsWith(rel + '/'))
     fs.rmSync(abs, { recursive: true })
+    ctx.state.dropCiScenarios(project.id, inside) // a deleted scenario must leave the deploy suite
     ctx.bus.publish({ type: 'scenario-changed', project: project.id, path: rel, action: 'removed' })
     return { deleted: rel }
   })
@@ -257,6 +262,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     const abs = path.join(project.scenariosDir, rel)
     if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory()) return reply.code(404).send({ message: `no "${rel}"` })
     fs.rmSync(abs)
+    ctx.state.dropCiScenarios(project.id, [rel])
     return { deleted: rel }
   })
 
@@ -388,8 +394,12 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       const project = findProject(req.params.id)
       if (!project) return reply.code(404).send({ message: `no project "${req.params.id}"` })
       const rel = safeRel(req.body.path, project.scenariosDir)
-      if (!rel || !ctx.scenarios.get(project.id, rel)) return reply.code(404).send({ message: `no such scenario` })
-      ctx.state.setCiScenario(project.id, rel, Boolean(req.body.enabled))
+      // turning the flag ON needs the file; turning it OFF must work for a path
+      // that is already gone, or a stale entry could never be removed
+      const enabled = Boolean(req.body.enabled)
+      if (!rel || (enabled && !ctx.scenarios.get(project.id, rel)))
+        return reply.code(404).send({ message: `no such scenario` })
+      ctx.state.setCiScenario(project.id, rel, enabled)
       return { path: rel, ci: Boolean(req.body.enabled) }
     },
   )
@@ -405,7 +415,17 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       const hostUrl = mergedHosts(project)[hostName]
       if (!hostUrl) return reply.code(400).send({ message: `no host "${hostName}"` })
 
-      const paths = req.body?.scenarios ?? ctx.state.getCiScenarios(project.id)
+      let paths = req.body?.scenarios ?? ctx.state.getCiScenarios(project.id)
+      if (!req.body?.scenarios) {
+        // scenarios deleted outside Pulse leave entries behind: clear them here
+        // rather than failing the deploy on files nobody can run
+        const missing = paths.filter((p) => !ctx.scenarios.get(project.id, p))
+        if (missing.length > 0) {
+          ctx.state.dropCiScenarios(project.id, missing)
+          paths = paths.filter((p) => !missing.includes(p))
+          app.log.warn({ project: project.id, missing }, 'deploy suite: dropped scenarios that no longer exist')
+        }
+      }
       if (paths.length === 0)
         return reply.code(400).send({ message: 'deploy suite is empty: mark scenarios in the UI or pass scenarios[]' })
 

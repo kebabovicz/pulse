@@ -244,7 +244,10 @@ export function buildMcpServer(ctx: AppContext): McpServer {
       const target = projectOf(project)
       if (!target) return fail(`no project "${project}"`)
       const safe = safeRel(rel, target.scenariosDir)
-      if (!safe || !ctx.scenarios.get(project, safe)) return fail(`no scenario "${rel}" in project "${project}"`)
+      // taking a scenario out of the suite must work after the file is gone,
+      // otherwise a stale entry fails every deploy and cannot be removed
+      if (!safe || (enabled && !ctx.scenarios.get(project, safe)))
+        return fail(`no scenario "${rel}" in project "${project}"`)
       ctx.state.setCiScenario(project, safe, enabled)
       return ok({ path: safe, ci: enabled })
     },
@@ -253,17 +256,35 @@ export function buildMcpServer(ctx: AppContext): McpServer {
   server.registerTool(
     'delete',
     {
-      description: 'Remove a scenario file from the project — for clearing away a draft you no longer need.',
-      inputSchema: z.object({ project: z.string(), path: z.string() }),
+      description:
+        'Remove a scenario, a fixture or an empty folder from the project — for clearing away what you no longer need. A folder with anything inside needs recursive: true.',
+      inputSchema: z.object({
+        project: z.string(),
+        path: z.string(),
+        recursive: z.boolean().optional().describe('delete a folder together with everything inside it'),
+      }),
     },
-    ({ project, path: rel }) => {
+    ({ project, path: rel, recursive }) => {
       const target = projectOf(project)
       if (!target) return fail(`no project "${project}"`)
       const safe = safeRel(rel, target.scenariosDir)
       if (!safe) return fail('path must stay inside the scenarios folder')
       const abs = path.join(target.scenariosDir, safe)
-      if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory()) return fail(`no scenario "${rel}"`)
+      if (!fs.existsSync(abs)) return fail(`no "${rel}" in project "${project}"`)
+      if (fs.statSync(abs).isDirectory()) {
+        const inside = fs.readdirSync(abs)
+        if (inside.length > 0 && !recursive)
+          return fail(`"${rel}" holds ${inside.length} entries — pass recursive: true to delete it with them`)
+        const scenarios = (ctx.scenarios.list(project) ?? [])
+          .map((s) => s.path)
+          .filter((p) => p === safe || p.startsWith(safe + '/'))
+        fs.rmSync(abs, { recursive: true })
+        ctx.state.dropCiScenarios(project, scenarios)
+        ctx.bus.publish({ type: 'scenario-changed', project, path: safe, action: 'removed' })
+        return ok({ deleted: safe, scenarios: scenarios.length })
+      }
       fs.rmSync(abs)
+      ctx.state.dropCiScenarios(project, [safe]) // and out of the deploy suite with it
       return ok({ deleted: safe })
     },
   )
@@ -351,7 +372,14 @@ export function buildMcpServer(ctx: AppContext): McpServer {
           body: cut(step.response.body, BODY_CUT),
         },
         checks: step.checks?.map((c) => ({
-          check: c.kind === 'status' ? 'status' : c.kind === 'header' ? `header ${c.name}` : c.kind === 'body-path' ? `body ${c.path}` : 'body text',
+          check:
+            c.kind === 'status'
+              ? 'status'
+              : c.kind === 'header'
+                ? `header ${c.name}`
+                : c.kind === 'body-path'
+                  ? `body ${c.path}`
+                  : 'body text',
           passed: c.passed,
           expected: cut(String(c.expected)),
           actual: c.actual === null ? null : cut(String(c.actual)),

@@ -56,6 +56,28 @@ export class StateStore {
     fs.writeFileSync(this.file, JSON.stringify(state, null, 2))
   }
 
+  /** Moves the deploy flag with the file, so a rename does not drop it silently. */
+  renameCiScenarios(projectId: string, moves: [string, string][]): void {
+    const state = this.read()
+    const current = state.ciScenarios?.[projectId]
+    if (!current?.length) return
+    const map = new Map(moves)
+    state.ciScenarios = { ...state.ciScenarios, [projectId]: current.map((p) => map.get(p) ?? p) }
+    fs.writeFileSync(this.file, JSON.stringify(state, null, 2))
+  }
+
+  /** Drops paths that no longer exist — a deleted scenario must leave the suite. */
+  dropCiScenarios(projectId: string, paths: string[]): void {
+    const state = this.read()
+    const current = state.ciScenarios?.[projectId]
+    if (!current?.length) return
+    const gone = new Set(paths)
+    const kept = current.filter((p) => !gone.has(p))
+    if (kept.length === current.length) return
+    state.ciScenarios = { ...state.ciScenarios, [projectId]: kept }
+    fs.writeFileSync(this.file, JSON.stringify(state, null, 2))
+  }
+
   private read(): AppState {
     try {
       return JSON.parse(fs.readFileSync(this.file, 'utf8')) as AppState

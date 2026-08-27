@@ -410,6 +410,17 @@ export class Runner {
   }
 }
 
+/** Masking keeps the check's shape: the union is discriminated by `kind`. */
+function maskCheck(space: TemplateSpace, check: CheckResult): CheckResult {
+  const expected = space.mask(check.expected)
+  // only the status check always has a value; the rest may report nothing found
+  if (check.kind === 'status') return { ...check, expected, actual: space.mask(check.actual) }
+  const actual = check.actual === null ? null : space.mask(check.actual)
+  if (check.kind === 'header') return { ...check, expected, actual }
+  if (check.kind === 'body-path') return { ...check, expected, actual }
+  return { ...check, expected, actual }
+}
+
 /** Re-masks a finished step once a secret capture revealed what to hide. */
 function maskStep(
   space: TemplateSpace,
@@ -429,11 +440,7 @@ function maskStep(
       headers: Object.fromEntries(Object.entries(response.headers).map(([k, v]) => [k, space.mask(v)])),
       body: space.mask(response.body),
     },
-    checks: checks.map((c) => ({
-      ...c,
-      expected: space.mask(c.expected),
-      actual: c.actual === null ? null : space.mask(c.actual),
-    })),
+    checks: checks.map((c) => maskCheck(space, c)),
   }
 }
 

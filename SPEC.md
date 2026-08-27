@@ -131,12 +131,17 @@ capture:
   userId: { from: body, path: $.id } # JSON body field
   foundId: { from: body, path: "$.items[?(@.name=='X')].id" } # filters work here too
   otpCode: { from: body, regex: 'code: (\d{6})' } # first regex group
-  accessToken:
-    { from: body } # whole body as a string, byte for byte:
-    # a JSON scalar keeps its quotes — use regex for the bare value
+  createdId: { from: body, json: true } # bare JSON scalar: "guid" → guid
+  rawBody: { from: body } # whole body as a string, byte for byte
   requestId: { from: header, name: x-request-id }
   refreshToken: { from: cookie, name: refreshToken } # from the response Set-Cookie
+  accessToken:
+    { from: body, path: $.token, secret: true } # masked in the UI and in stored runs,
+    # including every request that later carries it
 ```
+
+`secret: true` works on any capture. Use it for tokens: without it the value is
+stored in the run history and shown in the request that carries it.
 
 ### cookies
 
@@ -180,8 +185,10 @@ Clean up through the API only: Pulse deliberately has no database access.
 ## Interpolation
 
 - `{{name}}` — a variable from `vars` or `capture`. Works in `path`, `url`,
-  `query`, `headers`, `body`, `equals`, `matches`, `cookies.set`. In `matches`
-  the value is inserted into the regex as-is, unescaped.
+  `query`, `headers`, `body`, `equals`, `matches`, `cookies.set`, and inside a
+  JSONPath expression — both in a check's `path` and in a capture's `path`:
+  `"$.items[?(@.id=='{{orderId}}')].name"`. In `matches` the value is inserted
+  into the regex as-is, unescaped.
 - Generators (computed once per run, at first use):
   - `{{random.phone}}` — +79XXXXXXXXX, unique per run
   - `{{random.uuid}}` — UUID v4

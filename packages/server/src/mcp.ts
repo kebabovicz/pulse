@@ -119,12 +119,14 @@ export function buildMcpServer(ctx: AppContext): McpServer {
   server.registerTool(
     'scenarios',
     {
-      description: 'Scenarios of a project: path, name, step count, whether the file is valid and how it last ran.',
+      description:
+        'Scenarios of a project: path, name, step count, whether the file is valid, whether it runs after a deploy, and how it last ran.',
       inputSchema: z.object({ project: z.string() }),
     },
     ({ project }) => {
       const list = ctx.scenarios.list(project)
       if (!list) return fail(`no project "${project}"`)
+      const ciSet = new Set(ctx.state.getCiScenarios(project))
       return ok(
         list.map((s) => {
           const last = ctx.runs.readIndex(project, RunStore.scenarioKey(s.path)).at(-1)
@@ -133,6 +135,7 @@ export function buildMcpServer(ctx: AppContext): McpServer {
             name: s.name,
             steps: s.stepCount,
             valid: s.valid,
+            ci: ciSet.has(s.path),
             error: s.error?.message,
             lastRun: last ? { run: last.run, status: last.status, at: last.startedAt } : undefined,
           }
@@ -195,6 +198,41 @@ export function buildMcpServer(ctx: AppContext): McpServer {
       fs.mkdirSync(path.dirname(abs), { recursive: true })
       fs.writeFileSync(abs, yaml)
       return ok({ path: safe, steps: result.scenario.steps.length })
+    },
+  )
+
+  server.registerTool(
+    'deploy_suite',
+    {
+      description:
+        'Add a scenario to the set that CI runs after a deploy, or take it out. The same flag the "Run on deploy" switch sets in the UI.',
+      inputSchema: z.object({ project: z.string(), path: z.string(), enabled: z.boolean() }),
+    },
+    ({ project, path: rel, enabled }) => {
+      const target = projectOf(project)
+      if (!target) return fail(`no project "${project}"`)
+      const safe = safeRel(rel, target.scenariosDir)
+      if (!safe || !ctx.scenarios.get(project, safe)) return fail(`no scenario "${rel}" in project "${project}"`)
+      ctx.state.setCiScenario(project, safe, enabled)
+      return ok({ path: safe, ci: enabled })
+    },
+  )
+
+  server.registerTool(
+    'delete',
+    {
+      description: 'Remove a scenario file from the project — for clearing away a draft you no longer need.',
+      inputSchema: z.object({ project: z.string(), path: z.string() }),
+    },
+    ({ project, path: rel }) => {
+      const target = projectOf(project)
+      if (!target) return fail(`no project "${project}"`)
+      const safe = safeRel(rel, target.scenariosDir)
+      if (!safe) return fail('path must stay inside the scenarios folder')
+      const abs = path.join(target.scenariosDir, safe)
+      if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory()) return fail(`no scenario "${rel}"`)
+      fs.rmSync(abs)
+      return ok({ deleted: safe })
     },
   )
 

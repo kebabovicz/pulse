@@ -19,7 +19,7 @@ import type { Project, Settings } from './config.js'
 import type { EventBus } from './events.js'
 import { stepRefs, type LoadedScenario } from './scenarios.js'
 import { RunStore } from './storage.js'
-import { TemplateSpace } from './template.js'
+import { MASK, TemplateSpace } from './template.js'
 import { parseDuration } from './util.js'
 
 interface ActiveRun {
@@ -359,17 +359,24 @@ export class Runner {
     if (!checks.every((c) => c.passed)) return { status: 'failed', request: snapshot, response, checks }
 
     const captures: CaptureResult[] = []
+    let hidSecret = false
     for (const [name, spec] of Object.entries(step.capture ?? {})) {
       let value: string
       let detail: string
       if (spec.from === 'body') {
         if (spec.path) {
-          const found: unknown[] = JSONPath({ path: spec.path, json: json ?? null, wrap: true })
+          // the path may reference earlier captures, same as a check does
+          const path = space.render(spec.path).text
+          const found: unknown[] = JSONPath({ path, json: json ?? null, wrap: true })
           value = found.length ? String(found[0]) : ''
-          detail = spec.path
+          detail = path
         } else if (spec.regex) {
           value = safeExec(spec.regex, text)
           detail = `regex: ${spec.regex}`
+        } else if (spec.json) {
+          // a bare JSON scalar body: "guid" becomes guid instead of "guid"
+          value = typeof json === 'string' || typeof json === 'number' || typeof json === 'boolean' ? String(json) : text
+          detail = 'body as JSON'
         } else {
           value = text
           detail = 'entire body'
@@ -381,14 +388,49 @@ export class Runner {
         value = setCookies.get(spec.name) ?? ''
         detail = spec.name
       }
-      ctx.space.set(name, { value, fromStep: step.id, secret: false })
-      captures.push({ name, from: spec.from, detail, value: value.slice(0, 4096) })
+      // a secret capture is masked everywhere: in the stored run, and in every
+      // request snapshot that carries it — a live token must not sit in history
+      const secret = spec.secret === true
+      ctx.space.set(name, { value, fromStep: step.id, secret })
+      captures.push({ name, from: spec.from, detail, value: secret ? MASK : value.slice(0, 4096) })
+      if (secret) hidSecret = true
     }
-    return { status: 'passed', request: snapshot, response, checks, captures }
+    // a secret is captured after the checks ran, so the value it came from is
+    // still spelled out in this step's own snapshot — hide it before storing
+    return hidSecret
+      ? { status: 'passed', ...maskStep(space, snapshot, response, checks), captures }
+      : { status: 'passed', request: snapshot, response, checks, captures }
   }
 
   private publish(ctx: RunCtx, event: Record<string, unknown> & { type: string }): void {
     this.bus.publish({ project: ctx.project.id, scenario: ctx.scenario, run: ctx.run, ...event } as never)
+  }
+}
+
+/** Re-masks a finished step once a secret capture revealed what to hide. */
+function maskStep(
+  space: TemplateSpace,
+  request: RequestSnapshot | null,
+  response: ResponseSnapshot,
+  checks: CheckResult[],
+): { request: RequestSnapshot | null; response: ResponseSnapshot; checks: CheckResult[] } {
+  return {
+    request: request && {
+      ...request,
+      url: space.mask(request.url),
+      headers: Object.fromEntries(Object.entries(request.headers).map(([k, v]) => [k, space.mask(v)])),
+      body: request.body === null ? null : space.mask(request.body),
+    },
+    response: {
+      ...response,
+      headers: Object.fromEntries(Object.entries(response.headers).map(([k, v]) => [k, space.mask(v)])),
+      body: space.mask(response.body),
+    },
+    checks: checks.map((c) => ({
+      ...c,
+      expected: space.mask(c.expected),
+      actual: c.actual === null ? null : space.mask(c.actual),
+    })),
   }
 }
 

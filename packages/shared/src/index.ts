@@ -46,7 +46,9 @@ export interface ExpectSpec {
   body?: BodyCheck[]
 }
 
-export type CaptureSpec = { from: 'body'; path?: string; regex?: string } | { from: 'header' | 'cookie'; name: string }
+export type CaptureSpec =
+  | { from: 'body'; path?: string; regex?: string; json?: boolean; secret?: boolean }
+  | { from: 'header' | 'cookie'; name: string; secret?: boolean }
 
 export interface CookiesSpec {
   clear?: true

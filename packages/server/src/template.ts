@@ -12,6 +12,9 @@ const randomDigits = (n: number): string => Array.from({ length: n }, () => Math
 
 // Flat variable namespace of a run plus {{random.*}} generators (SPEC.md).
 // Each generator expression is evaluated once per run.
+/** What a secret looks like once it leaves the runner. */
+export const MASK = '•••'
+
 export class TemplateSpace {
   private values = new Map<string, VarEntry>()
   private generated = new Map<string, string>()
@@ -44,7 +47,7 @@ export class TemplateSpace {
   mask(text: string): string {
     let out = text
     for (const { value, secret } of this.values.values()) {
-      if (secret && value) out = out.replaceAll(value, '•••')
+      if (secret && value) out = out.replaceAll(value, MASK)
     }
     return out
   }

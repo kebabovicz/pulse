@@ -178,7 +178,15 @@ function flakySteps(scenarios: ScenarioStats[], store: RunStore, projectId: stri
       })
     }
   }
-  return flaky.sort((a, b) => b.rate - a.rate)
+  // one row per endpoint: a shared sign-in flakes in every scenario at once,
+  // and the reader needs the endpoint, not a list of its callers
+  const byEndpoint = new Map<string, FlakyStep>()
+  for (const row of flaky) {
+    const key = row.path ? `${row.method ?? ''} ${row.path}` : `${row.scenario}/${row.stepId}`
+    const seen = byEndpoint.get(key)
+    if (!seen || row.lastRun.startedAt > seen.lastRun.startedAt) byEndpoint.set(key, row)
+  }
+  return [...byEndpoint.values()].sort((a, b) => b.rate - a.rate)
 }
 
 /** How many entries each supporting table shows before it becomes a wall of text. */
@@ -193,16 +201,29 @@ const STALE_DAYS = 7
 
 type MeasuredStep = StepStats & { scenario: string; spread: number; medianMs: number }
 
-const stepsOf = (scenarios: ScenarioStats[]): MeasuredStep[] =>
-  scenarios.flatMap((s) =>
-    s.steps
-      .filter((step): step is StepStats & { medianMs: number } => step.medianMs !== null && step.medianMs > 0)
-      .map((step) => ({
+/**
+ * One row per endpoint, not per scenario that calls it: a shared step like
+ * sign-in appears in every scenario and would otherwise fill the table with
+ * copies of itself. The slowest sample wins, and it names the scenario it came from.
+ */
+const stepsOf = (scenarios: ScenarioStats[]): MeasuredStep[] => {
+  const byEndpoint = new Map<string, MeasuredStep>()
+  for (const s of scenarios) {
+    for (const step of s.steps) {
+      if (step.medianMs === null || step.medianMs <= 0) continue
+      const measured: MeasuredStep = {
         ...step,
+        medianMs: step.medianMs,
         scenario: s.scenario,
         spread: step.p90Ms !== null ? step.p90Ms / step.medianMs : 1,
-      })),
-  )
+      }
+      const key = step.path ? `${step.method ?? ''} ${step.path}` : `${s.scenario}/${step.stepId}`
+      const seen = byEndpoint.get(key)
+      if (!seen || measured.medianMs > seen.medianMs) byEndpoint.set(key, measured)
+    }
+  }
+  return [...byEndpoint.values()]
+}
 
 /** The slowest endpoints of the project — the question a green project asks. */
 function slowestSteps(scenarios: ScenarioStats[]): SlowStep[] {

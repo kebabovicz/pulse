@@ -59,13 +59,15 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
     const expected = render(check.matches)
     return { kind: 'body-text', expected, actual: preview(text), passed: matches(expected, text) }
   }
-  const found: unknown[] = json === undefined ? [] : JSONPath({ path: check.path, json, wrap: true })
+  // the path may reference captured values: "$.items[?(@.id=='{{orderId}}')]"
+  const path = render(check.path)
+  const found: unknown[] = json === undefined ? [] : JSONPath({ path, json, wrap: true })
   const value = found[0]
   const actual = found.length === 0 ? null : typeof value === 'string' ? value : JSON.stringify(value)
   if (check.exists !== undefined) {
     return {
       kind: 'body-path',
-      path: check.path,
+      path,
       predicate: 'exists',
       expected: String(check.exists),
       actual,
@@ -76,7 +78,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
     const expected = typeof check.equals === 'string' ? render(check.equals) : String(check.equals)
     return {
       kind: 'body-path',
-      path: check.path,
+      path,
       predicate: 'equals',
       expected,
       actual,
@@ -87,7 +89,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
     const expected = typeof check.notEquals === 'string' ? render(check.notEquals) : String(check.notEquals)
     return {
       kind: 'body-path',
-      path: check.path,
+      path,
       predicate: 'notEquals',
       expected: `≠ ${expected}`,
       actual,
@@ -95,12 +97,13 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
     }
   }
   if (check.equalsPath !== undefined) {
-    const otherFound: unknown[] = json === undefined ? [] : JSONPath({ path: check.equalsPath, json, wrap: true })
+    const otherPath = render(check.equalsPath)
+    const otherFound: unknown[] = json === undefined ? [] : JSONPath({ path: otherPath, json, wrap: true })
     const other = otherFound.length === 0 ? null : otherFound[0]
-    const expected = `${check.equalsPath} = ${other === null ? '—' : typeof other === 'string' ? other : JSON.stringify(other)}`
+    const expected = `${otherPath} = ${other === null ? '—' : typeof other === 'string' ? other : JSON.stringify(other)}`
     return {
       kind: 'body-path',
-      path: check.path,
+      path,
       predicate: 'equalsPath',
       expected,
       actual,
@@ -111,7 +114,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
     const expected = render(check.matches)
     return {
       kind: 'body-path',
-      path: check.path,
+      path,
       predicate: 'matches',
       expected,
       actual,
@@ -129,7 +132,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
     const cmp = compareOrdered(value, expected, numericBound)
     return {
       kind: 'body-path',
-      path: check.path,
+      path,
       predicate: op,
       expected: `${op === 'gt' ? '>' : '<'} ${expected}`,
       actual,
@@ -147,7 +150,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
       (predicate === 'length' ? size === bound : predicate === 'minLength' ? size >= bound : size <= bound)
     return {
       kind: 'body-path',
-      path: check.path,
+      path,
       predicate,
       expected,
       actual: size === null ? actual : `length ${size}`,
@@ -157,7 +160,7 @@ function evalBodyCheck(check: BodyCheck, text: string, json: unknown, render: (s
   const actualType = found.length === 0 ? null : value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value
   return {
     kind: 'body-path',
-    path: check.path,
+    path,
     predicate: 'type',
     expected: String(check.type),
     actual: actualType,

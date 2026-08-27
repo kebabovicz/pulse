@@ -11,6 +11,7 @@ import { Auth } from './auth.js'
 import { NodeStreamableHTTPServerTransport } from '@modelcontextprotocol/node'
 import { buildMcpServer } from './mcp.js'
 import { registerRoutes, type AppContext } from './routes.js'
+import { attachTelemetry, telemetryOptions } from './telemetry.js'
 import { Runner } from './runner.js'
 import { ScenarioStore } from './scenarios.js'
 import { StateStore } from './state.js'
@@ -69,6 +70,9 @@ app.addHook('onRequest', (req, reply, done) => {
   done()
 })
 
+// structured records for every run — on stdout, and where asked into a file or to a collector
+const flushTelemetry = attachTelemetry((listener) => bus.onEvent(listener), app.log, telemetryOptions(process.env))
+
 registerRoutes(app, appCtx)
 
 /**
@@ -90,4 +94,14 @@ if (fs.existsSync(webDir)) {
 }
 
 for (const message of config.errors) app.log.warn(`config: ${message}`)
+
+// a stopping container must not swallow the events of the run it was serving
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, () => {
+    void flushTelemetry()
+      .then(() => app.close())
+      .then(() => process.exit(0))
+  })
+}
+
 await app.listen({ port, host: '0.0.0.0' })

@@ -124,6 +124,35 @@ Run summaries are deliberately compact — bodies are cut and only failed checks
 are spelled out, so a debugging loop does not burn the agent's context. The full
 body of a step comes from `step` when the summary is not enough.
 
+## Logs and events
+
+Every run leaves a structured record on stdout — one JSON line per event, flat
+keys, no nesting to unwrap:
+
+```json
+{"event":"run.finished","ts":"2026-08-27T09:12:04.881Z","project":"myapi",
+ "scenario":"auth/otp-login.yaml","run":42,"status":"failed","durationMs":2311,
+ "failedStep":"verify-code","failedCheck":{"expected":"200","actual":"401"}}
+```
+
+That is what promtail, alloy, fluent-bit and the rest already ingest, so a
+Grafana dashboard or an alert on `status="failed"` needs no exporter of its own.
+
+Events: `run.started`, `run.finished`, `step.finished`, `scenario.changed`,
+`health.changed`.
+
+| variable | effect |
+| --- | --- |
+| `LOG_LEVEL` | log level, `info` by default |
+| `PULSE_LOG_STEPS=1` | add a record per finished step, not just per run |
+| `PULSE_EVENTS_FILE` | append the same records to a file as JSON Lines |
+| `PULSE_EVENTS_URL` | POST batches of records to a collector or an alert hook |
+| `PULSE_EVENTS_TOKEN` | bearer token for that endpoint |
+
+Batches are flushed every 50 records or two seconds, and once more when the
+container stops. A collector that is down is logged and skipped — telemetry
+never stalls a run.
+
 ## CI integration
 
 Mark scenarios as "Run on deploy" in the UI, then call from your pipeline after

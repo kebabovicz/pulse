@@ -3,6 +3,7 @@ import type { ProjectView } from '@pulse/shared'
 import { addHost, deleteHost, setActiveHost } from './api'
 import { Check, ChevronDown, Cross } from './icons'
 import { t } from './i18n'
+import { notify } from './ui/toast'
 
 // Active host picker plus adding and removing manually entered hosts.
 export function HostMenu({ project, onChanged }: { project: ProjectView; onChanged: () => void }) {
@@ -30,7 +31,7 @@ export function HostMenu({ project, onChanged }: { project: ProjectView; onChang
 
   const pick = async (host: string) => {
     setOpen(false)
-    await setActiveHost(project.id, host).catch((e: Error) => alert(e.message))
+    await setActiveHost(project.id, host).catch((e: Error) => notify(e.message))
     onChanged()
   }
 
@@ -39,7 +40,7 @@ export function HostMenu({ project, onChanged }: { project: ProjectView; onChang
       await addHost(project.id, name.trim(), url.trim())
       await setActiveHost(project.id, name.trim())
     } catch (e) {
-      return alert((e as Error).message)
+      return notify((e as Error).message)
     }
     setAdding(false)
     setName('')
@@ -75,7 +76,7 @@ export function HostMenu({ project, onChanged }: { project: ProjectView; onChang
                   title={t('deleteBtn')}
                   onClick={() => {
                     void deleteHost(project.id, hostName)
-                      .catch((e: Error) => alert(e.message))
+                      .catch((e: Error) => notify(e.message))
                       .then(onChanged)
                   }}
                 >

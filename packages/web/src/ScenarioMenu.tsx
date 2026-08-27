@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { deleteScenario, renameScenario, toggleCi } from './api'
 import { Check } from './icons'
 import { t } from './i18n'
+import { notify } from './ui/toast'
+import { useDismiss } from './ui/useDismiss'
 
 // Scenario actions: rename (the file name only — folders are changed by dragging) and delete.
 export function ScenarioMenu({
@@ -24,26 +26,13 @@ export function ScenarioMenu({
   const [newName, setNewName] = useState(baseName)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) onClose()
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose])
+  useDismiss(rootRef, onClose)
 
   const submitRename = async () => {
     const trimmed = newName.trim()
     if (trimmed && trimmed !== baseName) {
       // the extension and the folder stay put: only the name is editable here
-      await renameScenario(project, path, `${folder}${trimmed}.yaml`).catch((e: Error) => alert(e.message))
+      await renameScenario(project, path, `${folder}${trimmed}.yaml`).catch((e: Error) => notify(e.message))
     }
     onChanged()
     onClose()
@@ -83,7 +72,7 @@ export function ScenarioMenu({
         className="select-item"
         onClick={() => {
           void toggleCi(project, path, !ci)
-            .catch((e: Error) => alert(e.message))
+            .catch((e: Error) => notify(e.message))
             .then(() => {
               onChanged()
               onClose()
@@ -105,7 +94,7 @@ export function ScenarioMenu({
         onClick={() => {
           if (!confirming) return setConfirming(true)
           void deleteScenario(project, path)
-            .catch((e: Error) => alert(e.message))
+            .catch((e: Error) => notify(e.message))
             .then(() => {
               onChanged()
               onClose()

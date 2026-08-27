@@ -205,6 +205,7 @@ body {
 
 /* ── folders in the sidebar ── */
 .scn-folder {
+  position: relative; /* anchors the delete confirmation */
   display: flex;
   align-items: center;
   padding-right: 10px;
@@ -221,7 +222,16 @@ body {
 .drop-target {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
-  background: var(--tint-accent);
+  background-color: var(--tint-accent);
+}
+/* one hairline per level a row sits under, drawn where that level's chevron is */
+.scn-folder,
+.scenario-item {
+  background-image: repeating-linear-gradient(to right, var(--border-strong) 0 1px, transparent 1px 12px);
+  background-repeat: no-repeat;
+  background-origin: border-box; /* measured from the row edge, not from its indent */
+  background-position: 13px 0;
+  background-size: max(var(--indent, 0px) - 8px, 0px) 100%;
 }
 /* the empty space under the tree: dropping here lifts an item to the top level */
 .scn-drop-root {
@@ -318,7 +328,7 @@ body {
 }
 .scenario-item.selected,
 .scenario-item:hover {
-  background: var(--bg-elev);
+  background-color: var(--bg-elev);
 }
 /* a rule on the edge carries the alarm: the row itself stays a list row */
 .scenario-item.failed::before,
@@ -341,7 +351,8 @@ body {
   flex: 1;
   min-width: 0; /* lets the name shrink and clip instead of pushing past the sidebar */
   text-align: left;
-  padding: 7px 20px;
+  /* 17px = chevron + gap, so a scenario name lines up with the folder names beside it */
+  padding: 7px 20px 7px 17px;
   border: 0;
   background: none;
   color: var(--text-secondary);
@@ -1301,7 +1312,7 @@ input[type='checkbox']:checked::after {
 }
 
 /* ── modal ── */
-/* z-order: sticky rows 5 < tabs 10 < menus 20-30 < badges 40 < modals 100 */
+/* z-order: sticky rows 5 < tabs 10 < menus 20-30 < badges 40 < modals 100 < toasts 200 */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1375,6 +1386,52 @@ input[type='checkbox']:checked::after {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
+}
+
+/* ── the corner note that replaces the browser alert ── */
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+  z-index: 200;
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-left: 2px solid var(--fail);
+  border-radius: 2px;
+  color: var(--text-primary);
+  font: 400 11px var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  animation: toast-in 0.16s ease;
+}
+.toast:hover {
+  border-color: var(--fail);
+}
+.toast-text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.delete-confirm-text {
+  font-size: 11px;
+  color: var(--text-primary);
 }
 
 /* ── empty states, file fragment ── */

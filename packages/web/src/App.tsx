@@ -9,6 +9,7 @@ import { dateLocale, lang, setLang, t } from './i18n'
 import { Login } from './Login'
 import { ProjectWorkspace } from './ProjectWorkspace'
 import { Select } from './Select'
+import { Toasts } from './ui/toast'
 
 const PROJECT_KEY = 'pulse.project'
 
@@ -123,6 +124,7 @@ export function App() {
         </div>
       )}
       {aboutOpen && <About onClose={() => setAboutOpen(false)} />}
+      <Toasts />
     </>
   )
 }

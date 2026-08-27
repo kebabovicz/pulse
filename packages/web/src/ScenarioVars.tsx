@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { saveVarDefaults, type ScenarioVar } from './api'
 import { Check, Cross, Eye, EyeOff } from './icons'
 import { t } from './i18n'
+import { notify } from './ui/toast'
 
 /** Built-in generators, offered as one-click inserts (SPEC.md). */
 const GENERATORS = [
@@ -47,7 +48,7 @@ export function ScenarioVars({ project, path, vars }: { project: string; path: s
     try {
       await saveVarDefaults(project, path, changed)
     } catch (e) {
-      return alert((e as Error).message)
+      return notify((e as Error).message)
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)

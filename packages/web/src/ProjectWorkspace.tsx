@@ -20,6 +20,7 @@ import { RunModal } from './RunModal'
 import { RunScreen } from './RunScreen'
 import { fromRecord, pendingRun, reduce, type RunState } from './runState'
 import { ScenarioList } from './ScenarioList'
+import { notify } from './ui/toast'
 import { ScenarioScreen } from './ScenarioScreen'
 import { StatsScreen } from './StatsScreen'
 
@@ -146,7 +147,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
       } catch (e) {
         setLive(false)
         setRunState(null)
-        return alert((e as Error).message)
+        return notify((e as Error).message)
       }
       // the run screen follows along; wait for this one to end before the next
       await waitForRunEnd()
@@ -166,7 +167,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
     } catch (e) {
       setLive(false)
       setRunState(null)
-      alert((e as Error).message)
+      notify((e as Error).message)
     }
   }
 
@@ -183,7 +184,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
 
   const clearHistory = async (scenario: string | null) => {
     if (!scenario || scenario === selectedPath) setRunState(null)
-    await clearRuns(project.id, scenario ?? undefined).catch((e: Error) => alert(e.message))
+    await clearRuns(project.id, scenario ?? undefined).catch((e: Error) => notify(e.message))
     await Promise.all([openHistory(historyFilter), reloadScenarios()])
   }
 

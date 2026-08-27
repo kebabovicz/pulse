@@ -7,6 +7,8 @@ import { fileLabel } from './runState'
 import { ScenarioMenu } from './ScenarioMenu'
 import { buildTree, type TreeFolder } from './scenarioTree'
 import { useClipped } from './ui/useClipped'
+import { useDismiss } from './ui/useDismiss'
+import { notify } from './ui/toast'
 
 /** Sidebar: scenario search, import and the grouped scenario list. */
 export function ScenarioList({
@@ -101,20 +103,17 @@ export function ScenarioList({
       await renameScenario(projectId, from, to)
       onChanged()
     } catch (e) {
-      alert((e as Error).message)
+      notify((e as Error).message)
     }
   }
 
-  /** Deleting a folder takes its scenarios with it, so the count is spelled out. */
+  /** The tree asks before this runs: a folder takes its scenarios with it. */
   const removeFolder = async (folder: TreeFolder) => {
-    const inside = folder.scenarios.length + folder.folders.length
-    const question = inside > 0 ? `${folder.path}\n${t('confirmDeleteFolder')}` : folder.path
-    if (!confirm(question)) return
     try {
       await deleteFolder(projectId, folder.path.replace(/\/$/, ''))
       onChanged()
     } catch (e) {
-      alert((e as Error).message)
+      notify((e as Error).message)
     }
   }
 
@@ -129,7 +128,7 @@ export function ScenarioList({
       await renameScenario(projectId, from.replace(/\/$/, ''), to)
       onChanged()
     } catch (e) {
-      alert((e as Error).message)
+      notify((e as Error).message)
     }
   }
 
@@ -138,7 +137,7 @@ export function ScenarioList({
     for (const file of files) {
       await importScenario(projectId, file.name, await file.text()).catch((err: Error) => failures.push(err.message))
     }
-    if (failures.length) alert(failures.join('\n'))
+    for (const failure of failures) notify(failure)
   }
 
   return (
@@ -306,7 +305,7 @@ function NewFolderRow({
 }) {
   const [value, setValue] = useState('')
   return (
-    <div className={`scn-folder scn-folder-new${error ? ' invalid' : ''}`} style={{ paddingLeft: 8 + depth * 12 }}>
+    <div className={`scn-folder scn-folder-new${error ? ' invalid' : ''}`} style={indent(depth)}>
       <input
         className="scn-folder-input"
         autoFocus
@@ -327,6 +326,41 @@ function NewFolderRow({
   )
 }
 
+/** Deleting a folder takes everything inside it, so the tree asks first. */
+function DeleteFolderConfirm({
+  folder,
+  onCancel,
+  onConfirm,
+}: {
+  folder: TreeFolder
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  useDismiss(rootRef, onCancel)
+  const inside = folder.runnable.length + folder.folders.length
+  return (
+    <div className="scenario-menu delete-confirm" ref={rootRef}>
+      <div className="modal-section">{folder.path}</div>
+      <div className="delete-confirm-text">{inside > 0 ? t('confirmDeleteFolder') : t('confirmDelete')}</div>
+      <div className="modal-actions">
+        <button className="btn" onClick={onCancel}>
+          {t('cancel')}
+        </button>
+        <button className="btn danger" onClick={onConfirm}>
+          {t('deleteBtn')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Rows are indented by their depth, and the guides are drawn from the same number. */
+const indent = (depth: number): React.CSSProperties => {
+  const px = 8 + depth * 12
+  return { paddingLeft: px, ['--indent' as string]: `${px}px` }
+}
+
 /** What is being dragged: a scenario file or a whole folder. */
 const DRAG_SCENARIO = 'application/x-pulse-scenario'
 const DRAG_FOLDER = 'application/x-pulse-folder'
@@ -336,6 +370,7 @@ function FolderView(props: ViewProps) {
   const { folder, collapsed, onToggleFolder, onRunFolder, onMove, onMoveFolder } = props
   const [over, setOver] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [asking, setAsking] = useState(false)
   const open = !collapsed.has(folder.path)
   const isRoot = folder.path === ''
 
@@ -368,7 +403,7 @@ function FolderView(props: ViewProps) {
       {!isRoot && (
         <div
           className={`scn-folder${over ? ' drop-target' : ''}${dragging ? ' dragging' : ''}`}
-          style={{ paddingLeft: 8 + folder.depth * 12 }}
+          style={indent(folder.depth)}
           data-node={folder.path}
           draggable
           onDragStart={(e) => {
@@ -395,9 +430,19 @@ function FolderView(props: ViewProps) {
               <Play size={12} />
             </button>
           )}
-          <button className="row-action" title={t('deleteFolder')} onClick={() => void props.onDeleteFolder(folder)}>
+          <button className="row-action" title={t('deleteFolder')} onClick={() => setAsking(true)}>
             <Trash size={11} />
           </button>
+          {asking && (
+            <DeleteFolderConfirm
+              folder={folder}
+              onCancel={() => setAsking(false)}
+              onConfirm={() => {
+                setAsking(false)
+                props.onDeleteFolder(folder)
+              }}
+            />
+          )}
         </div>
       )}
       {open && (
@@ -473,7 +518,7 @@ function ScenarioRow({
       className={`scenario-item${item.path === selectedPath ? ' selected' : ''}${
         !item.valid ? ' invalid' : item.lastRun?.status === 'failed' ? ' failed' : ''
       }${over ? ' drop-target' : ''}${dragging ? ' dragging' : ''}`}
-      style={{ paddingLeft: folder.depth >= 0 ? 8 + (folder.depth + 1) * 12 : 0 }}
+      style={indent(folder.depth + 1)}
       data-node={item.path}
       draggable
       onDragStart={(e) => {

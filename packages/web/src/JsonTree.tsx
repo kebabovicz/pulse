@@ -69,6 +69,16 @@ function Value({ value }: { value: Json }) {
   return <span className="jt-literal">{value === null ? 'null' : JSON.stringify(value)}</span>
 }
 
+/** The longest key of the whole tree, indent included — the width of the key column. */
+function widestKey(entries: (readonly [string, Json])[], depth: number): number {
+  let widest = 0
+  for (const [name, value] of entries) {
+    widest = Math.max(widest, name.length + depth * 2)
+    if (value !== null && typeof value === 'object') widest = Math.max(widest, widestKey(entriesOf(value), depth + 1))
+  }
+  return widest
+}
+
 /** How many rows the body would take fully expanded — the "is it big" test. */
 export function treeSize(text: string): number {
   const count = (value: Json): number =>
@@ -107,8 +117,9 @@ export function JsonTree({ text, expandAll = false }: { text: string; expandAll?
     })
 
   const rows = flatten(entriesOf(json), toggled, expandAll, '', 0)
-  // the value column starts right after the longest visible key, indent included
-  const longest = rows.reduce((max, row) => Math.max(max, row.name.length + row.depth * 2), 0)
+  // measured over the whole tree, not the visible rows: opening a branch must not
+  // shove the value column sideways
+  const longest = Math.min(widestKey(entriesOf(json), 0), 40)
 
   return (
     <div className="json-tree" style={{ '--key-col': `${longest + 3}ch` } as CSSProperties}>

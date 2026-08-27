@@ -133,6 +133,7 @@ export interface ScenarioSummary {
 export interface ScenarioListItem extends ScenarioSummary {
   lastRun?: Pick<RunIndexEntry, 'run' | 'status' | 'durationMs' | 'startedAt' | 'failedStep'> & {
     slow?: boolean // took noticeably longer than this scenario usually takes
+    retried?: boolean // passed, but a step had to be repeated
   }
   ci: boolean // part of the deploy suite (executed by /ci/run)
 }
@@ -348,6 +349,8 @@ export interface ChainRun {
   status: RunStatus
   /** false for runs older than the last change of the scenario file: shown, not counted */
   counted: boolean
+  /** a run that passed only after repeating a step */
+  retried?: boolean
 }
 
 export interface StepStats {
@@ -442,6 +445,8 @@ export interface RunIndexEntry {
   durationMs: number
   failedStep?: string
   stepStatuses: StepStatus[]
+  /** indexes of steps the runner had to repeat — a pass that cost extra attempts */
+  retried?: number[]
   scenarioHash: string
   host?: string
   trigger?: 'ci'

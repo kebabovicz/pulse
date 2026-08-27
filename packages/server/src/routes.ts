@@ -254,6 +254,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
             startedAt: last.startedAt,
             failedStep: last.failedStep,
             ...(ranSlow(index) && { slow: true }),
+            ...((last.retried?.length ?? 0) > 0 && { retried: true }),
           },
         }),
       }

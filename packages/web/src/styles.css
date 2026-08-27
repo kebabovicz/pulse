@@ -390,6 +390,21 @@ body {
   pointer-events: none;
   transition: width 0.2s ease;
 }
+/* the run ended: the bar reaches the end, brightens for a moment and fades */
+.scn-progress.done {
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  animation: scn-progress-out 0.5s ease forwards;
+}
+@keyframes scn-progress-out {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* the fill is a background, so the row's own content keeps its place above it */
 .scenario-item > .scenario-row,
 .scenario-item > .row-action {
@@ -1001,6 +1016,9 @@ body {
   min-height: 26px;
   padding: 5px 20px;
 }
+.jt-row {
+  animation: details-in 0.14s ease;
+}
 .jt-row:nth-child(even) {
   background: var(--row-alt);
 }
@@ -1287,8 +1305,10 @@ input[type='checkbox']:checked::after {
   text-align: right;
 }
 
+/* a long scenario wraps its steps instead of running over the next column */
 .minimap {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   gap: 2px;
 }
 .mm-cell {
@@ -1299,6 +1319,10 @@ input[type='checkbox']:checked::after {
 }
 .mm-cell.passed {
   background: #4e8a57;
+}
+/* a step that passed only after repeating: the run cost more than it looks */
+.mm-cell.retried {
+  background: var(--warn);
 }
 .mm-cell.failed {
   background: var(--fail);
@@ -2131,6 +2155,10 @@ input[type='search']::-webkit-search-cancel-button {
 .chain-run.failed {
   background: var(--fail);
 }
+/* passed, but a step had to be repeated to get there */
+.chain-run.retried {
+  background: var(--warn);
+}
 .chain-run.stopped,
 .chain-run.error {
   background: var(--skip);
@@ -2218,6 +2246,12 @@ input[type='search']::-webkit-search-cancel-button {
 }
 .stats-flaky.head {
   color: var(--text-secondary);
+}
+/* a path is one long word: without this it runs over the next column */
+.stats-flaky > *,
+.stats-step > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .stats-flaky.head > * {
   font-size: 10px;

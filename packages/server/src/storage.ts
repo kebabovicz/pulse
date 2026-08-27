@@ -47,6 +47,7 @@ export class RunStore {
       durationMs: record.durationMs,
       failedStep: record.failedStep,
       stepStatuses: record.steps.map((s) => s.status),
+      ...(retriedSteps(record).length > 0 && { retried: retriedSteps(record) }),
       scenarioHash: record.scenarioHash,
       host: record.host,
       trigger: record.trigger,
@@ -84,4 +85,9 @@ export class RunStore {
   private runDir(projectId: string, key: string, run: number): string {
     return path.join(this.dir(projectId, key), String(run).padStart(6, '0'))
   }
+}
+
+/** Steps that needed more than one attempt — the history marks them amber. */
+function retriedSteps(record: RunRecord): number[] {
+  return record.steps.flatMap((step, i) => ((step.attempts ?? 1) > 1 ? [i] : []))
 }

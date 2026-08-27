@@ -47,7 +47,7 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
   const [loading, setLoading] = useState(false)
   // steps finished out of the steps planned, per scenario: with concurrency on,
   // several rows fill at once
-  const [progress, setProgress] = useState<Record<string, { done: number; total: number }>>({})
+  const [progress, setProgress] = useState<Record<string, { done: number; total: number; finished?: boolean }>>({})
   // guards against a stale scenario load landing after a newer one
   const openRequest = useRef(0)
 
@@ -81,7 +81,14 @@ export function ProjectWorkspace({ project }: { project: ProjectView }) {
               return entry ? { ...p, [event.scenario]: { ...entry, done: entry.done + 1 } } : p
             })
           if (event.type === 'run-finished') {
-            setProgress(({ [event.scenario]: _done, ...rest }) => rest)
+            // the bar reaches the end and fades instead of vanishing mid-way:
+            // a run that took a blink still reads as a run that completed
+            const scenario = event.scenario
+            setProgress((p) => {
+              const entry = p[scenario]
+              return entry ? { ...p, [scenario]: { ...entry, done: entry.total, finished: true } } : p
+            })
+            setTimeout(() => setProgress(({ [scenario]: _done, ...rest }) => rest), 500)
             void reloadScenarios() // the row picks up the outcome of the run that just ended
           }
         }

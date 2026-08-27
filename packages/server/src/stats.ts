@@ -122,6 +122,7 @@ function scenarioStats(
     run: e.run,
     status: e.status,
     counted: counted.some((c) => c.run === e.run),
+    ...((e.retried?.length ?? 0) > 0 && { retried: true }),
   }))
   const lastFailureEntry = [...windowed].reverse().find((e) => e.status === 'failed')
   const durations = counted.map((e) => e.durationMs)

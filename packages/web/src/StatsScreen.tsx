@@ -45,7 +45,7 @@ function Chain({ chain }: { chain: ChainRun[] }) {
         return (
           <span
             key={run.run}
-            className={`chain-run ${run.counted ? run.status : 'outside'}${boundary ? ' boundary' : ''}`}
+            className={`chain-run ${run.counted ? run.status : 'outside'}${run.retried ? ' retried' : ''}${boundary ? ' boundary' : ''}`}
           />
         )
       })}
@@ -311,6 +311,7 @@ export function StatsScreen({
   const unstable = stats.unstable ?? []
   const stale = stats.stale ?? []
   const slower = stats.scenarios.filter((s) => (s.deltaPct ?? 0) > 0).length
+  const faster = stats.scenarios.filter((s) => (s.deltaPct ?? 0) < 0).length
   const failing = stats.scenarios.filter((s) => s.passRate !== null && s.passRate < 1).length
   const toggle = (scenario: string) =>
     setOpen((prev) => {
@@ -357,11 +358,13 @@ export function StatsScreen({
       </div>
 
       <div className="stats-headline">
-        <span className="warn">{slower}</span> {t('scenariosSlower')}
+        <span className="warn">{slower}</span> {t('scenariosSlower', slower)}
         {' · '}
-        <span className="bad">{failing}</span> {t('scenariosFailing')}
+        <span className="ok">{faster}</span> {t('scenariosFaster', faster)}
         {' · '}
-        <span className="warn">{flaky.length}</span> {t('stepsNotFirstTry')}
+        <span className="bad">{failing}</span> {t('scenariosFailing', failing)}
+        {' · '}
+        <span className="warn">{flaky.length}</span> {t('stepsNotFirstTry', flaky.length)}
       </div>
 
       <section

@@ -1,7 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ScenarioListItem } from '@pulse/shared'
 import { createFolder, deleteFolder, importScenario, renameScenario } from './api'
-import { ChevronDown, FolderPlus, MoreVertical, Play, Spinner, Trash, Upload, Warning } from './icons'
+import {
+  ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  FolderPlus,
+  MoreVertical,
+  Play,
+  Spinner,
+  Trash,
+  Upload,
+  Warning,
+} from './icons'
 import { dateLocale, t } from './i18n'
 import { fileLabel } from './runState'
 import { ScenarioMenu } from './ScenarioMenu'
@@ -26,7 +37,7 @@ export function ScenarioList({
   folders: string[]
   selectedPath: string | null
   /** steps finished out of steps planned, for every run going right now */
-  running: Record<string, { done: number; total: number }>
+  running: Record<string, { done: number; total: number; finished?: boolean }>
   onOpen: (path: string) => void
   onRun: (path: string) => void
   onRunFolder: (paths: string[]) => void
@@ -50,6 +61,20 @@ export function ScenarioList({
       : scenarios
     return buildTree(visible, folders)
   }, [scenarios, folders, search])
+
+  // every folder of the tree, so one button can fold or unfold the lot
+  const everyFolder = useMemo(() => {
+    const paths: string[] = []
+    const walk = (folder: TreeFolder) => {
+      for (const child of folder.folders) {
+        paths.push(child.path)
+        walk(child)
+      }
+    }
+    walk(tree)
+    return paths
+  }, [tree])
+  const allCollapsed = everyFolder.length > 0 && everyFolder.every((path) => collapsed.has(path))
 
   const toggleFolder = (path: string) =>
     setCollapsed((prev) => {
@@ -169,6 +194,13 @@ export function ScenarioList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button
+          className="icon-btn"
+          title={allCollapsed ? t('expandGroups') : t('collapseGroups')}
+          onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(everyFolder))}
+        >
+          {allCollapsed ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
+        </button>
         <button
           className="icon-btn"
           title={t('newFolder')}
@@ -291,7 +323,7 @@ interface ViewProps {
   onToggleFolder: (path: string) => void
   projectId: string
   selectedPath: string | null
-  running: Record<string, { done: number; total: number }>
+  running: Record<string, { done: number; total: number; finished?: boolean }>
   menuPath: string | null
   onMenu: (path: string | null) => void
   onOpen: (path: string) => void
@@ -567,7 +599,10 @@ function ScenarioRow({
       onDrop={drop}
     >
       {run && (
-        <span className="scn-progress" style={{ width: `${Math.round((run.done / Math.max(run.total, 1)) * 100)}%` }} />
+        <span
+          className={`scn-progress${run.finished ? ' done' : ''}`}
+          style={{ width: `${Math.round((run.done / Math.max(run.total, 1)) * 100)}%` }}
+        />
       )}
       <button className="scenario-row" onClick={() => onOpen(item.path)}>
         <span className="scenario-title">
@@ -609,14 +644,15 @@ function ScenarioName({ label }: { label: string }) {
 
 /**
  * The colour of the row's left edge is the outcome: green passed, red failed,
- * amber a run that took noticeably longer than this scenario usually does (or a
- * file that does not parse — it has no runs to colour).
+ * amber a run that limped through — noticeably slower than this scenario usually
+ * is, or passing only because a step was repeated (or a file that does not parse
+ * — it has no runs to colour).
  */
 function outcomeClass(item: ScenarioListItem): string {
   if (!item.valid) return 'invalid'
   if (!item.lastRun) return ''
   if (item.lastRun.status === 'failed') return 'failed'
-  if (item.lastRun.slow) return 'slow'
+  if (item.lastRun.slow || item.lastRun.retried) return 'slow'
   if (item.lastRun.status === 'passed') return 'passed'
   return ''
 }
